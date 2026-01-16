@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Header Visibility Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .test-content {
+            height: 200vh;
+            background: linear-gradient(45deg, #f0f0f0, #ffffff, #e0e0e0);
+            padding: 100px 20px 20px;
+            line-height: 1.6;
+        }
+        .section {
+            margin: 50px 0;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .white-bg { background: white; }
+        .light-bg { background: #f9f9f9; }
+        .dark-bg { background: #333; color: white; }
+    </style>
+</head>
+<body>
+    <div class="test-content">
+        <h1>Header Visibility Test</h1>
+        <p>This page helps test if the header banner is visible against different backgrounds.</p>
+        
+        <div class="section white-bg">
+            <h2>White Background Section</h2>
+            <p>This section has a pure white background to test header contrast.</p>
+        </div>
+        
+        <div class="section light-bg">
+            <h2>Light Background Section</h2>
+            <p>This section has a light gray background to test header visibility.</p>
+        </div>
+        
+        <div class="section dark-bg">
+            <h2>Dark Background Section</h2>
+            <p>This section has a dark background to test header visibility in dark mode.</p>
+        </div>
+        
+        <div class="section white-bg">
+            <h2>Instructions</h2>
+            <p>1. Open the React app at <strong>http://localhost:8081/</strong></p>
+            <p>2. Check if the header is clearly visible</p>
+            <p>3. Scroll to see if the header remains visible</p>
+            <p>4. Test both light and dark themes</p>
+            <p>5. Test on mobile by resizing the window</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "std/": "https://deno.land/std@0.208.0/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "resend": "https://esm.sh/resend@2.0.0"
+  },
+  "compilerOptions": {
+    "lib": ["ES2020", "DOM"],
+    "allowJs": true
+  }
+}

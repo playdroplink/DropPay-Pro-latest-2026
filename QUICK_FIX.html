@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DropPay - Database Fix Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .error-box {
+            background: #fee;
+            border-left: 4px solid #e53e3e;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+        .error-box h3 {
+            color: #c53030;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .error-box code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #c53030;
+        }
+        .steps {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .steps h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .step {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+        .step-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+        .sql-box {
+            background: #1a202c;
+            color: #68d391;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+        }
+        .sql-box::before {
+            content: 'SQL';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #2d3748;
+            color: #a0aec0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .btn-secondary {
+            background: #48bb78;
+        }
+        .btn-secondary:hover {
+            background: #38a169;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+        .success-msg {
+            background: #c6f6d5;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .success-msg.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .icon {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 DropPay Database Fix</h1>
+        <p class="subtitle">Fix the merchant profile creation error</p>
+
+        <div class="error-box">
+            <h3>⚠️ Error Detected</h3>
+            <p>Your database is missing a required constraint:</p>
+            <p style="margin-top: 10px;"><code>42P10: no unique or exclusion constraint matching the ON CONFLICT specification</code></p>
+        </div>
+
+        <div class="steps">
+            <h2>Quick Fix (2 minutes)</h2>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>Copy the SQL below</strong> by clicking the copy button
+                </div>
+            </div>
+
+            <div class="sql-box" id="sqlCode">ALTER TABLE public.merchants
+DROP CONSTRAINT IF EXISTS merchants_pi_user_id_key CASCADE;
+
+ALTER TABLE public.merchants
+ADD CONSTRAINT merchants_pi_user_id_key UNIQUE (pi_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_merchants_pi_user_id
+ON public.merchants(pi_user_id);</div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>Open your Supabase SQL Editor</strong> by clicking the button below
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Paste and run</strong> the SQL in the editor, then click the green <strong>RUN</strong> button
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <strong>Refresh your app</strong> at <code>http://localhost:8081</code> and try logging in again
+                </div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button onclick="copySQL()" class="btn-copy">
+                <span class="icon">📋</span>
+                Copy SQL
+            </button>
+            <button onclick="openSupabase()" class="btn-secondary">
+                <span class="icon">🚀</span>
+                Open SQL Editor
+            </button>
+        </div>
+
+        <div class="success-msg" id="successMsg">
+            ✅ SQL copied to clipboard! Now paste it in the Supabase SQL Editor and click RUN.
+        </div>
+    </div>
+
+    <script>
+        function copySQL() {
+            const sql = document.getElementById('sqlCode').textContent;
+            navigator.clipboard.writeText(sql).then(() => {
+                const msg = document.getElementById('successMsg');
+                msg.classList.add('show');
+                setTimeout(() => {
+                    msg.classList.remove('show');
+                }, 5000);
+            }).catch(err => {
+                alert('Failed to copy. Please select and copy manually.');
+            });
+        }
+
+        function openSupabase() {
+            window.open('https://supabase.com/dashboard/project/xoofailhzhfyebzpzrfs/sql', '_blank');
+            
+            // Show helpful reminder
+            setTimeout(() => {
+                if (confirm('Did you paste and run the SQL? Click OK when done to refresh your app.')) {
+                    window.location.href = 'http://localhost:8081';
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

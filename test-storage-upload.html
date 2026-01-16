@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Storage Upload Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Storage Upload Test</h1>
+    <div id="status"></div>
+    <div id="results"></div>
+
+    <script>
+        const supabase = window.supabase.createClient(
+            'https://xoofailhzhfyebzpzrfs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvb2ZhaWxoemhmeWVienB6cmZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ3ODA2NzksImV4cCI6MjA1MDM1NjY3OX0.PnlJiNWzkvQCJ-4oa-Q3l1CeNbX-2-XKaRn5D8WTHJI'
+        );
+
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+
+        async function testStorage() {
+            statusDiv.innerHTML = '<h2>Testing Storage...</h2>';
+            const results = [];
+
+            // Check authentication
+            const { data: { user } } = await supabase.auth.getUser();
+            results.push(`<h3>Authentication:</h3><pre>${user ? 'Logged in as: ' + user.email : '❌ NOT LOGGED IN - You need to be logged in!'}</pre>`);
+
+            if (!user) {
+                results.push('<p><strong>⚠️ You must be logged in to upload files. Sign in to your app first, then run this test.</strong></p>');
+            }
+
+            // Test each bucket
+            const buckets = [
+                'payment-link-images',
+                'checkout-images', 
+                'merchant-products',
+                'payment-content',
+                'user-uploads'
+            ];
+
+            for (const bucket of buckets) {
+                results.push(`<h3>Testing bucket: ${bucket}</h3>`);
+                
+                // Create test file
+                const testFile = new File(['test content'], 'test.jpg', { type: 'image/jpeg' });
+                const fileName = `test-${Date.now()}.jpg`;
+
+                // Try upload
+                const { data, error } = await supabase.storage
+                    .from(bucket)
+                    .upload(fileName, testFile);
+
+                if (error) {
+                    results.push(`<pre style="color: red;">❌ FAILED: ${error.message}</pre>`);
+                    
+                    // Check specific error types
+                    if (error.message.includes('row-level security')) {
+                        results.push(`<pre>Missing RLS policy for INSERT on bucket: ${bucket}</pre>`);
+                    }
+                    if (error.message.includes('not found')) {
+                        results.push(`<pre>Bucket doesn't exist: ${bucket}</pre>`);
+                    }
+                } else {
+                    results.push(`<pre style="color: green;">✅ SUCCESS: ${data.path}</pre>`);
+                    
+                    // Try to get public URL
+                    const { data: urlData } = supabase.storage
+                        .from(bucket)
+                        .getPublicUrl(fileName);
+                    results.push(`<pre>Public URL: ${urlData.publicUrl}</pre>`);
+
+                    // Clean up - delete test file
+                    await supabase.storage.from(bucket).remove([fileName]);
+                }
+            }
+
+            // Check RLS policies
+            results.push('<h3>Checking RLS Policies:</h3>');
+            const { data: policies, error: policyError } = await supabase
+                .from('pg_policies')
+                .select('*')
+                .eq('schemaname', 'storage')
+                .eq('tablename', 'objects');
+
+            if (policyError) {
+                results.push(`<pre style="color: orange;">⚠️ Cannot check policies directly: ${policyError.message}</pre>`);
+            } else {
+                results.push(`<pre>Found ${policies?.length || 0} policies (need 20 total)</pre>`);
+            }
+
+            resultsDiv.innerHTML = results.join('');
+        }
+
+        // Run test on load
+        testStorage();
+    </script>
+</body>
+</html>

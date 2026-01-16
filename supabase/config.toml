@@ -1,0 +1,17 @@
+project_id = "reyhsdlsvclpzsgecoyf"
+
+# Pi Network Payment Functions Configuration
+# verify_jwt = false is required because Pi SDK doesn't provide Supabase JWT tokens
+# Payment callbacks come from client-side Pi SDK and we validate through Pi Network API
+
+[functions.approve-payment]
+verify_jwt = false
+
+[functions.complete-payment]
+verify_jwt = false
+
+[functions.verify-payment]
+verify_jwt = false
+
+[functions.verify-ad-reward]
+verify_jwt = false

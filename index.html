@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/droppay-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.minepi.com https://app-cdn.minepi.com; connect-src 'self' https: wss: ws:; frame-src 'self' https://app-cdn.minepi.com;" />
+    <title>DropPay - Accept Pi Payments</title>
+    <meta name="description" content="Accept Pi cryptocurrency payments in your apps and websites with DropPay" />
+    <meta name="author" content="DropPay" />
+
+    <meta property="og:title" content="DropPay - Accept Pi Payments" />
+    <meta property="og:description" content="Accept Pi cryptocurrency payments in your apps and websites with DropPay" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/droppay-logo.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@DropPay" />
+    <meta name="twitter:image" content="/droppay-logo.png" />
+
+    <!-- Pi Network SDK - Mainnet Production -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>
+      // Pi SDK will be initialized by AuthContext with proper environment config
+      // Do NOT initialize here to avoid conflicts
+      if (window.Pi) {
+        console.log('✅ Pi SDK loaded - waiting for app initialization');
+      } else {
+        console.warn('⚠️ Pi SDK not available - ensure Pi Browser access');
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

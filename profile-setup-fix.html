@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DropPay Profile Setup Fix</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .problem {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .problem h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .problem code {
+            background: #fffacd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .error-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            color: #721c24;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        
+        .solution {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .solution h3 {
+            color: #155724;
+            margin-bottom: 10px;
+        }
+        
+        .method {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .method h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .method-icon {
+            font-size: 1.5em;
+        }
+        
+        .steps {
+            list-style: none;
+            counter-reset: step;
+        }
+        
+        .steps li {
+            counter-increment: step;
+            margin: 12px 0;
+            padding-left: 40px;
+            position: relative;
+        }
+        
+        .steps li:before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #667eea;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin: 10px 5px 10px 0;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        
+        .button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .button.secondary {
+            background: #6c757d;
+        }
+        
+        .button.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            color: #155724;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            color: #856404;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            color: #0c5460;
+        }
+        
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .checklist li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .checklist li:before {
+            content: "☐";
+            margin-right: 10px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+        
+        .checklist li.done:before {
+            content: "✓";
+            color: #28a745;
+        }
+        
+        h2 {
+            color: #667eea;
+            margin: 30px 0 15px 0;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #555;
+            margin: 20px 0 10px 0;
+        }
+        
+        p {
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+            color: #666;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .quick-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .verify-box {
+            background: #cfe2ff;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            border-radius: 4px;
+            color: #084298;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 DropPay Profile Setup Fix</h1>
+            <p>Complete solution to database constraint error (42P10)</p>
+        </div>
+        
+        <div class="content">
+            <!-- The Problem -->
+            <h2>❌ The Problem</h2>
+            <div class="problem">
+                <h3>After signing in with Pi Network:</h3>
+                <p>You cannot use the app because profile creation fails with this error:</p>
+                <div class="error-box">
+                    Error Code: 42P10<br>
+                    Message: "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+                </div>
+            </div>
+            
+            <!-- Root Cause -->
+            <h2>🔍 Root Cause</h2>
+            <p>The <code>merchants</code> table is missing a <strong>UNIQUE constraint</strong> on the <code>pi_user_id</code> column. This constraint is required for the database to handle duplicate insert attempts properly.</p>
+            
+            <!-- The Solution -->
+            <h2>✅ The Solution (Choose ONE method)</h2>
+            
+            <!-- Method 1 -->
+            <div class="method">
+                <h3><span class="method-icon">⚡</span> METHOD 1: Quick Fix (Recommended)</h3>
+                <p><strong>Time: 2 minutes | Difficulty: Easy</strong></p>
+                <ol class="steps">
+                    <li>Open Supabase Dashboard: <a href="https://supabase.com/dashboard" target="_blank" class="button">Open Dashboard</a></li>
+                    <li>Click your project</li>
+                    <li>Go to <strong>SQL Editor</strong> → <strong>New Query</strong></li>
+                    <li>Copy this file's content: <strong>FINAL_PROFILE_FIX.sql</strong></li>
+                    <li>Paste into the editor (Ctrl+V)</li>
+                    <li>Click the blue <strong>▶ Run</strong> button</li>
+                    <li>Wait for ✅ success messages</li>
+                    <li>Refresh your app and test sign-in</li>
+                </ol>
+            </div>
+            
+            <!-- Method 2 -->
+            <div class="method">
+                <h3><span class="method-icon">🚀</span> METHOD 2: Automated (Recommended for Developers)</h3>
+                <p><strong>Time: 1 minute | Difficulty: Medium</strong></p>
+                <p>Run this PowerShell script:</p>
+                <div class="code-block">./apply-profile-fix.ps1</div>
+                <p>Or this batch file for Windows:</p>
+                <div class="code-block">quick-profile-fix.bat</div>
+            </div>
+            
+            <!-- Method 3 -->
+            <div class="method">
+                <h3><span class="method-icon">💻</span> METHOD 3: Manual Database Fix</h3>
+                <p><strong>Time: 5 minutes | Difficulty: Advanced</strong></p>
+                <p>If you have direct database access:</p>
+                <ol class="steps">
+                    <li>Connect to your PostgreSQL database</li>
+                    <li>Open: <strong>FINAL_PROFILE_FIX.sql</strong></li>
+                    <li>Execute each SQL section</li>
+                    <li>Verify constraints are applied</li>
+                </ol>
+            </div>
+            
+            <!-- What Gets Fixed -->
+            <h2>🔧 What the Fix Does</h2>
+            <ol class="steps">
+                <li><strong>Adds Unique Constraint:</strong> Allows the app to handle duplicate signups</li>
+                <li><strong>Fixes RLS Policies:</strong> Enables profile creation, updates, viewing, and deletion</li>
+                <li><strong>Adds Performance Index:</strong> Speeds up lookups</li>
+                <li><strong>Validates Everything:</strong> Checks that all fixes are applied correctly</li>
+            </ol>
+            
+            <!-- Verification -->
+            <h2>✓ Verify the Fix</h2>
+            <div class="verify-box">
+                <h3>Check in Supabase Dashboard:</h3>
+                <ol class="steps">
+                    <li>Go to <strong>Table Editor</strong></li>
+                    <li>Click on <strong>merchants</strong> table</li>
+                    <li>Look for <strong>Constraints</strong> section</li>
+                    <li>You should see: <code>merchants_pi_user_id_key</code> (UNIQUE)</li>
+                </ol>
+            </div>
+            
+            <div class="success">
+                <h3>✅ How to Know It's Fixed:</h3>
+                <ol class="steps">
+                    <li>Sign out completely from the app</li>
+                    <li>Clear browser cache/cookies</li>
+                    <li>Sign in again with Pi Network</li>
+                    <li>Merchant profile creates without errors</li>
+                    <li>You can create payment links</li>
+                </ol>
+            </div>
+            
+            <!-- Troubleshooting -->
+            <h2>❓ Troubleshooting</h2>
+            
+            <div class="warning">
+                <h3>Still Getting 42P10 Error?</h3>
+                <ol class="steps">
+                    <li>Hard refresh your browser: <code>Ctrl+Shift+R</code></li>
+                    <li>Clear all cookies and cache</li>
+                    <li>Close all tabs of the app</li>
+                    <li>Open the app in an incognito/private window</li>
+                    <li>Try signing in again</li>
+                </ol>
+            </div>
+            
+            <div class="info">
+                <h3>Constraint Already Exists?</h3>
+                <p>This is fine! It means the fix was already applied. ✓</p>
+            </div>
+            
+            <div class="warning">
+                <h3>Permission Denied Error?</h3>
+                <ol class="steps">
+                    <li>Make sure you're in the correct Supabase project</li>
+                    <li>Verify your authentication</li>
+                    <li>Check that you have admin/owner access</li>
+                </ol>
+            </div>
+            
+            <!-- Checklist -->
+            <h2>📋 Quick Checklist</h2>
+            <ul class="checklist">
+                <li>Opened Supabase Dashboard</li>
+                <li>Located FINAL_PROFILE_FIX.sql</li>
+                <li>Pasted SQL into SQL Editor</li>
+                <li>Clicked Run button</li>
+                <li>Got success messages</li>
+                <li>Refreshed the app</li>
+                <li>Tested sign-in with Pi Network</li>
+                <li>Verified merchant profile created</li>
+            </ul>
+            
+            <!-- Next Steps -->
+            <h2>🚀 Next Steps</h2>
+            <ol class="steps">
+                <li>Test the complete sign-in flow</li>
+                <li>Create a payment link</li>
+                <li>Test the checkout process</li>
+                <li>Verify payments work correctly</li>
+            </ol>
+            
+            <!-- Need Help -->
+            <h2>📚 Need More Help?</h2>
+            <p>Check these files in your project:</p>
+            <ul style="margin-left: 20px;">
+                <li><strong>PROFILE_SETUP_FIX_GUIDE.md</strong> - Detailed step-by-step guide</li>
+                <li><strong>QUICK_TROUBLESHOOTING.md</strong> - Common issues and solutions</li>
+                <li><strong>DROPPAY_COMPLETE_DOCUMENTATION.md</strong> - Full system documentation</li>
+                <li><strong>FINAL_PROFILE_FIX.sql</strong> - The SQL migration file</li>
+            </ul>
+            
+            <div class="quick-links">
+                <a href="https://supabase.com/dashboard" target="_blank" class="button">Open Supabase</a>
+                <a href="FINAL_PROFILE_FIX.sql" class="button secondary">View SQL Fix</a>
+                <a href="PROFILE_SETUP_FIX_GUIDE.md" class="button secondary">Read Full Guide</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>DropPay Profile Setup Fix</strong> | Complete solution for database constraint error (42P10)</p>
+            <p>📧 For support, refer to documentation or check the troubleshooting guide.</p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #999;">Last updated: January 6, 2026</p>
+        </div>
+    </div>
+</body>
+</html>
