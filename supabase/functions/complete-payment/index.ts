@@ -69,20 +69,19 @@ serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Check for duplicate payment completion
-  if (paymentLinkId) {
-    const { data: existingTx } = await supabase
-      .from('transactions')
-      .select('id')
-      .eq('pi_payment_id', paymentId)
-      .single();
+  const { data: existingTx } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('pi_payment_id', paymentId)
+    .limit(1)
+    .maybeSingle();
 
-    if (existingTx) {
-      console.log('⚠️ Payment already completed:', paymentId);
-      return new Response(
-        JSON.stringify({ success: true, message: 'Payment already completed', transactionId: existingTx.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  if (existingTx) {
+    console.log('Payment already completed:', paymentId);
+    return new Response(
+      JSON.stringify({ success: true, message: 'Payment already completed', transactionId: existingTx.id }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -98,17 +97,32 @@ serve(async (req: Request) => {
       }
     );
 
+    let result: any = null;
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Pi API complete error:', { status: response.status, body: errorText });
-      return new Response(
-        JSON.stringify({ error: 'Pi API complete failed', details: errorText }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      const lower = (errorText || '').toLowerCase();
+      const isAlreadyCompleted =
+        (response.status === 400 || response.status === 409) &&
+        (lower.includes('already') || lower.includes('completed') || lower.includes('duplicate'));
 
-    const result = await response.json();
-    console.log('✅ Payment completed on Pi Network:', result);
+      if (!isAlreadyCompleted) {
+        console.error('Pi API complete error:', { status: response.status, body: errorText });
+        return new Response(
+          JSON.stringify({ error: 'Pi API complete failed', details: errorText, piStatus: response.status }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.warn('Pi API reports payment already completed; continuing idempotently', {
+        paymentId,
+        status: response.status,
+        body: errorText,
+      });
+      result = { alreadyCompleted: true };
+    } else {
+      result = await response.json();
+      console.log('Payment completed on Pi Network:', result);
+    }
 
     if (paymentLinkId) {
       let linkData: { merchant_id: string; amount: number; stock?: number | null; is_unlimited_stock?: boolean } | null = null;

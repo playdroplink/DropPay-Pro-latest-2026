@@ -871,7 +871,8 @@ export default function PayPage() {
     } catch (error) {
       console.error('Payment error:', error);
       setPaymentStatus('error');
-      toast.error('Payment failed. Please try again.');
+      const msg = error instanceof Error ? error.message : 'Payment failed. Please try again.';
+      toast.error(msg);
     }
   };
 
