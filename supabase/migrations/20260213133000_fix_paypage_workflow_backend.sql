@@ -12,6 +12,15 @@ ON public.payment_links
 FOR SELECT
 USING (is_active = true);
 
+-- 1b) Ensure public can read active checkout links (required by /pay/{slug} for checkout mode)
+ALTER TABLE public.checkout_links ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "PayPage can read active checkout links" ON public.checkout_links;
+CREATE POLICY "PayPage can read active checkout links"
+ON public.checkout_links
+FOR SELECT
+USING (is_active = true);
+
 -- 2) Allow public reads needed for plan-limit checks on PayPage
 ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
 
@@ -52,5 +61,16 @@ CREATE INDEX IF NOT EXISTS idx_transactions_pi_payment_id
 
 CREATE INDEX IF NOT EXISTS idx_transactions_payment_link_status
   ON public.transactions (payment_link_id, status);
+
+-- Checkout-link transaction lookups are currently tracked in transactions.metadata
+-- by complete-payment edge function:
+-- metadata.source_link_table = 'checkout_links'
+-- metadata.source_link_id = checkout_links.id
+CREATE INDEX IF NOT EXISTS idx_transactions_checkout_metadata_status
+  ON public.transactions (
+    (metadata->>'source_link_table'),
+    (metadata->>'source_link_id'),
+    status
+  );
 
 COMMIT;

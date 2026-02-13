@@ -175,19 +175,25 @@ serve(async (req: Request) => {
 
         // Record transaction
         const finalAmount = amount ?? result?.payment?.amount ?? linkData.amount;
+        const transactionPayload = {
+          merchant_id: linkData.merchant_id,
+          payment_link_id: isCheckoutLink ? null : paymentLinkId,
+          pi_payment_id: paymentId,
+          payer_pi_username: payerUsername,
+          amount: finalAmount,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          txid,
+          buyer_email: buyerEmail,
+          metadata: {
+            source_link_table: isCheckoutLink ? 'checkout_links' : 'payment_links',
+            source_link_id: paymentLinkId,
+          },
+        };
+
         const { data: txData, error: txError } = await supabase
           .from('transactions')
-          .insert({
-            merchant_id: linkData.merchant_id,
-            payment_link_id: paymentLinkId,
-            pi_payment_id: paymentId,
-            payer_pi_username: payerUsername,
-            amount: finalAmount,
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            txid,
-            buyer_email: buyerEmail,
-          })
+          .insert(transactionPayload)
           .select()
           .single();
 
