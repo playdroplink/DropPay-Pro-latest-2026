@@ -90,11 +90,124 @@ export default function Subscription() {
     fetchPlans();
   }, []);
 
+  const parseFeatures = (value: RawSubscriptionPlan['features']): string[] => {
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const resolvePlanByName = async (planName: string): Promise<SubscriptionPlan | null> => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('subscription_plans')
+        .select('id, name, amount, link_limit, platform_fee_percent, features')
+        .eq('name', planName)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error || !data) {
+        return null;
+      }
+
+      const typed = data as RawSubscriptionPlan;
+      return {
+        id: typed.id,
+        name: typed.name,
+        amount: Number(typed.amount),
+        link_limit: typed.link_limit,
+        platform_fee_percent: Number(typed.platform_fee_percent),
+        features: parseFeatures(typed.features),
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const resolveMerchantId = async (): Promise<string | null> => {
+    if (merchant?.id) return merchant.id;
+
+    let uid: string | undefined = piUser?.uid;
+    let username: string | undefined = piUser?.username;
+    const storedUser = localStorage.getItem('pi_user');
+
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        uid = uid || parsed?.uid;
+        username = username || parsed?.username;
+      } catch (error) {
+        console.error('Failed to parse stored pi_user:', error);
+      }
+    }
+
+    try {
+      if (uid) {
+        const { data } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('pi_user_id', uid)
+          .maybeSingle();
+        if (data?.id) return data.id;
+      }
+
+      if (username) {
+        const { data } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('pi_username', username)
+          .maybeSingle();
+        if (data?.id) return data.id;
+      }
+    } catch (error) {
+      console.error('Error resolving merchant ID:', error);
+    }
+
+    return null;
+  };
+
   const fetchPlans = async () => {
-    // Use hardcoded plans immediately
-    setPlans(DEFAULT_PLANS);
-    setPlansLoading(false);
-    console.log('Using hardcoded plans:', DEFAULT_PLANS);
+    setPlansLoading(true);
+    setPlansError(null);
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('subscription_plans')
+        .select('id, name, amount, link_limit, platform_fee_percent, features')
+        .eq('is_active', true)
+        .order('amount', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        const mappedPlans = (data as RawSubscriptionPlan[]).map((plan) => ({
+          id: plan.id,
+          name: plan.name,
+          amount: Number(plan.amount),
+          link_limit: plan.link_limit,
+          platform_fee_percent: Number(plan.platform_fee_percent),
+          features: parseFeatures(plan.features),
+        }));
+        setPlans(mappedPlans);
+        return;
+      }
+
+      setPlans(DEFAULT_PLANS);
+    } catch (error) {
+      console.error('Error loading subscription plans:', error);
+      setPlansError('Using fallback plans. Database plans could not be loaded.');
+      setPlans(DEFAULT_PLANS);
+    } finally {
+      setPlansLoading(false);
+    }
   };
 
   const handlePiAuth = async () => {
@@ -116,24 +229,10 @@ export default function Subscription() {
   };
 
   const createSubscriptionPaymentLink = async (selectedPlan: SubscriptionPlan) => {
-    // Get merchant ID from merchant, piUser, or localStorage
-    let merchantId = merchant?.id || piUser?.uid;
-    
+    const merchantId = await resolveMerchantId();
+
     if (!merchantId) {
-      const storedUser = localStorage.getItem('pi_user');
-      if (storedUser) {
-        try {
-          const user = JSON.parse(storedUser);
-          merchantId = user.uid;
-          console.log('✅ Using merchant ID from localStorage:', merchantId);
-        } catch (e) {
-          console.error('Failed to parse stored user:', e);
-        }
-      }
-    }
-    
-    if (!merchantId) {
-      toast.error('No merchant ID found. Please sign in again.');
+      toast.error('No merchant profile found. Please sign in again.');
       return null;
     }
     
@@ -189,7 +288,7 @@ export default function Subscription() {
     // Check authentication status - use piUser or localStorage fallback
     const storedUser = localStorage.getItem('pi_user');
     const hasPiUser = piUser || storedUser;
-    const hasMerchant = merchant || (storedUser && JSON.parse(storedUser).uid);
+    const hasMerchant = !!merchant;
     
     console.log('🔐 Auth check:', { 
       isAuthenticated, 
@@ -199,7 +298,7 @@ export default function Subscription() {
       merchant 
     });
     
-    if (!hasPiUser || !hasMerchant) {
+    if (!hasPiUser) {
       console.log('❌ Not authenticated, triggering Pi auth...');
       toast.error('Please sign in with Pi Network first');
       if (isPiBrowser) {
@@ -213,9 +312,14 @@ export default function Subscription() {
     setLoadingPlanId(selectedPlan.id);
     
     try {
+      const resolvedPlan = await resolvePlanByName(selectedPlan.name);
+      if (!resolvedPlan) {
+        throw new Error(`Could not load "${selectedPlan.name}" plan from database`);
+      }
+
       toast.info('Creating subscription payment link...');
       
-      const paymentSlug = await createSubscriptionPaymentLink(selectedPlan);
+      const paymentSlug = await createSubscriptionPaymentLink(resolvedPlan);
       
       if (!paymentSlug) {
         throw new Error('Failed to create payment link');
@@ -269,29 +373,39 @@ export default function Subscription() {
     }
 
     // Use merchant or fallback to piUser uid
-    const merchantId = currentMerchant?.id || currentPiUser.uid;
+    const merchantId = await resolveMerchantId();
     const piUsername = currentPiUser.username;
+    const resolvedPlan = await resolvePlanByName(selectedPlan.name);
+    if (!merchantId) {
+      toast.error('No merchant profile found. Please sign in again.');
+      return;
+    }
+    if (!resolvedPlan) {
+      toast.error(`Could not load "${selectedPlan.name}" plan from database`);
+      return;
+    }
+    const actionPlan = resolvedPlan;
     
     console.log('🔐 User authenticated:', {
       username: piUsername,
       merchantId: merchantId,
-      plan: selectedPlan.name
+      plan: actionPlan.name
     });
 
     // Free plan - just create/update subscription directly
-    if (selectedPlan.amount === 0) {
+    if (actionPlan.amount === 0) {
       try {
         setIsProcessing(true);
-        setLoadingPlanId(selectedPlan.id);
+        setLoadingPlanId(actionPlan.id);
 
-        console.log('💳 Creating free subscription:', { merchantId, piUsername, plan: selectedPlan.name });
+        console.log('💳 Creating free subscription:', { merchantId, piUsername, plan: actionPlan.name });
 
         // Upsert subscription record for Free plan
         console.log('📦 Activating free subscription:', {
           merchantId,
           piUsername,
-          planId: selectedPlan.id,
-          planName: selectedPlan.name
+          planId: actionPlan.id,
+          planName: actionPlan.name
         });
         
         const { error: upsertError } = await (supabase as any)
@@ -299,7 +413,7 @@ export default function Subscription() {
           .upsert({
             merchant_id: merchantId,
             pi_username: piUsername,
-            plan_id: selectedPlan.id,
+            plan_id: actionPlan.id,
             status: 'active',
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 100 years for free plan
@@ -314,7 +428,7 @@ export default function Subscription() {
         }
 
         console.log('✅ Free subscription activated successfully');
-        toast.success(`Successfully switched to ${selectedPlan.name} plan!`);
+        toast.success(`Successfully switched to ${actionPlan.name} plan!`);
         await refetchSubscription();
       } catch (error: any) {
         console.error('Error updating subscription:', error);
@@ -332,7 +446,7 @@ export default function Subscription() {
     }
 
     setIsProcessing(true);
-    setLoadingPlanId(selectedPlan.id);
+    setLoadingPlanId(actionPlan.id);
 
     try {
       // Re-authenticate with Pi Network for payment with required scopes
@@ -361,10 +475,10 @@ export default function Subscription() {
 
       // Create payment for subscription
       const paymentData = {
-        amount: selectedPlan.amount,
-        memo: `Upgrade to ${selectedPlan.name} Plan - DropPay Subscription`,
+        amount: actionPlan.amount,
+        memo: `Upgrade to ${actionPlan.name} Plan - DropPay Subscription`,
         metadata: {
-          plan_id: selectedPlan.id,
+          plan_id: actionPlan.id,
           merchant_id: merchantId,
           pi_username: piUsername,
           type: 'subscription_upgrade',
@@ -408,9 +522,9 @@ export default function Subscription() {
                 isSubscription: true,
                 payerUsername: piUsername,
                 merchantId: merchantId,
-                planId: selectedPlan.id,
-                paymentType: `Subscription: ${selectedPlan.name}`,
-                amount: selectedPlan.amount,
+                planId: actionPlan.id,
+                paymentType: `Subscription: ${actionPlan.name}`,
+                amount: actionPlan.amount,
               },
             });
 
@@ -418,8 +532,8 @@ export default function Subscription() {
             
             console.log('✅ Payment completed:', completionResult.data);
 
-            console.log('✅ Subscription activation handled by backend:', selectedPlan.name);
-            toast.success(`Successfully upgraded to ${selectedPlan.name} plan! 🎉`);
+            console.log('✅ Subscription activation handled by backend:', actionPlan.name);
+            toast.success(`Successfully upgraded to ${actionPlan.name} plan! 🎉`);
             
             // Refetch subscription data to update dashboard
             await refetchSubscription();

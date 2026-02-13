@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { PiNetworkValidator } from '@/lib/piNetworkValidator';
-import { getLocationFromTimezone } from '@/lib/locationUtils';
 
 export interface PiUser {
   uid: string;
@@ -166,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const { data: merchantData, error: merchantError } = await supabase
                 .from('merchants')
                 .select('*')
-                .eq('id', user.uid)
+                .eq('pi_user_id', user.uid)
                 .maybeSingle();
 
               if (merchantError) {
@@ -178,26 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Auto-create merchant profile if not exists
                 console.log('📝 Creating new merchant profile...');
                 
-                // Capture user location data
-                const locationData = getLocationFromTimezone();
-                console.log('📍 Location data:', locationData);
-                
                 const { data: newMerchant, error: createError } = await supabase
                   .from('merchants')
                   .insert({
-                    id: user.uid,
+                    pi_user_id: user.uid,
                     pi_username: user.username,
                     wallet_address: user.wallet_address,
-                    email: null,
-                    total_earnings: 0,
-                    total_transactions: 0,
-                    subscription_tier: 'free',
-                    is_active: true,
-                    latitude: locationData.latitude,
-                    longitude: locationData.longitude,
-                    country: locationData.country,
-                    city: locationData.city,
-                    timezone: locationData.timezone
                   })
                   .select()
                   .single();
@@ -468,7 +453,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: merchantData, error: merchantError } = await supabase
         .from('merchants')
         .select('*')
-        .eq('id', piUser.uid)
+        .eq('pi_user_id', piUser.uid)
         .maybeSingle();
 
       if (merchantError) {
@@ -481,26 +466,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Auto-create merchant profile if not exists
         console.log('📝 Creating new merchant profile...');
         
-        // Capture user location data
-        const locationData = getLocationFromTimezone();
-        console.log('📍 Location data:', locationData);
-        
         const { data: newMerchant, error: createError } = await supabase
           .from('merchants')
           .insert({
-            id: piUser.uid,
+            pi_user_id: piUser.uid,
             pi_username: piUser.username,
             wallet_address: piUser.wallet_address,
-            email: null,
-            total_earnings: 0,
-            total_transactions: 0,
-            subscription_tier: 'free',
-            is_active: true,
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-            country: locationData.country,
-            city: locationData.city,
-            timezone: locationData.timezone
           })
           .select()
           .single();
