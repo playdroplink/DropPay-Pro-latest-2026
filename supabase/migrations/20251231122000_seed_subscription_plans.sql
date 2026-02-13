@@ -28,16 +28,16 @@ VALUES (
 )
 ON CONFLICT DO NOTHING;
 
--- Insert Pro plan
+-- Insert Growth plan
 INSERT INTO public.subscription_plans (name, description, amount, "interval", link_limit, platform_fee_percent, features, is_active)
 VALUES (
-  'Pro',
+  'Growth',
   'Best for growing businesses',
-  30,
+  20,
   'monthly',
-  null,
+  200,
   1,
-  '["Unlimited payment links", "1 year analytics retention", "Priority support", "Advanced API", "Custom domain", "Webhooks", "Subscription management", "Split payments"]'::jsonb,
+  '["More payment links", "Advanced analytics", "Priority support", "Advanced API", "Custom branding", "Tracking links"]'::jsonb,
   true
 )
 ON CONFLICT DO NOTHING;

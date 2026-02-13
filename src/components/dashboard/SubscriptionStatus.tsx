@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 const planIcons: Record<string, any> = {
   Free: Zap,
   Basic: Star,
+  Growth: Rocket,
   Pro: Rocket,
   Enterprise: Building2,
 };

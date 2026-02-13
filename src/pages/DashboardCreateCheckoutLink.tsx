@@ -17,7 +17,7 @@ function validatePaymentTypeForPlan(category: string, planName: string) {
   const planFeatures = {
     'Free': ['ecommerce', 'restaurant', 'retail', 'services'], // Physical stores included in free
     'Basic': ['ecommerce', 'restaurant', 'retail', 'services'], // Physical stores included
-    'Pro': ['ecommerce', 'saas', 'restaurant', 'retail', 'services'], // Physical stores + SaaS
+    'Pro': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'], // Legacy alias of Growth
     'Growth': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'], // All categories for Growth
     'Enterprise': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'] // All categories
   };
@@ -42,10 +42,10 @@ function getRequiredPlanForCategory(category: string): string {
     'restaurant': 'Free',
     'retail': 'Free',
     'services': 'Free',
-    'saas': 'Pro',
-    'marketplaces': 'Growth',
-    'donations': 'Growth',
-    'gaming': 'Growth',
+      'saas': 'Growth',
+      'marketplaces': 'Growth',
+      'donations': 'Growth',
+      'gaming': 'Growth',
     'education': 'Growth'
   };
   

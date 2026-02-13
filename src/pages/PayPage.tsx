@@ -436,7 +436,7 @@ export default function PayPage() {
     }
   };
 
-  const verifyPaymentOnBlockchain = async (txid: string) => {
+  const verifyPaymentOnBlockchain = async (txid: string, expectedAmount?: number) => {
     if (!paymentLink) return false;
 
     setPaymentStatus('verifying');
@@ -445,7 +445,7 @@ export default function PayPage() {
       const response = await supabase.functions.invoke('verify-payment', {
         body: {
           txid,
-          expectedAmount: paymentLink.amount,
+          expectedAmount: expectedAmount ?? paymentLink.amount,
           paymentLinkId: paymentLink.id,
         },
         headers: functionHeaders,
@@ -467,30 +467,6 @@ export default function PayPage() {
 
   const handlePaymentSuccess = async (txId?: string) => {
     if (!paymentLink) return;
-
-    // Update conversion count for both payment links and checkout links
-    if (paymentLink.is_checkout_link) {
-      // Update checkout link conversions - fetch current value and increment
-      const { data: currentLink } = await (supabase as any)
-        .from('checkout_links')
-        .select('conversions')
-        .eq('id', paymentLink.id)
-        .single();
-      
-      const newConversions = (currentLink?.conversions || 0) + 1;
-      
-      const { error } = await (supabase as any)
-        .from('checkout_links')
-        .update({ conversions: newConversions })
-        .eq('id', paymentLink.id);
-      
-      if (error) {
-        console.warn('Failed to update checkout link conversions:', error);
-      }
-    } else {
-      // Update payment link conversions (existing behavior)
-      await supabase.rpc('increment_conversions', { link_id: paymentLink.id });
-    }
 
     // Handle content access after payment
     if (paymentLink.content_file) {
@@ -587,12 +563,21 @@ export default function PayPage() {
       const isFreePlan = planName === 'Free';
 
       if (isFreePlan) {
-        // Count completed transactions for this payment link
-        const countQuery: any = await supabase
-          .from('transactions')
-          .select('*', { count: 'exact', head: true })
-          .eq('payment_link_id', paymentLink.id)
-          .eq('status', 'completed');
+        // Count completed transactions for this link.
+        // Checkout links are recorded in transactions.metadata by backend complete-payment.
+        const countQuery: any = paymentLink.is_checkout_link
+          ? await (supabase as any)
+              .from('transactions')
+              .select('*', { count: 'exact', head: true })
+              .eq('merchant_id', paymentLink.merchant_id)
+              .eq('status', 'completed')
+              .eq('metadata->>source_link_table', 'checkout_links')
+              .eq('metadata->>source_link_id', paymentLink.id)
+          : await supabase
+              .from('transactions')
+              .select('*', { count: 'exact', head: true })
+              .eq('payment_link_id', paymentLink.id)
+              .eq('status', 'completed');
 
         const count = countQuery.count;
         if (count !== null && count >= 3) {
@@ -791,7 +776,7 @@ export default function PayPage() {
 
               // Verify on blockchain
               console.log('🔍 Verifying payment on blockchain...');
-              const isVerified = await verifyPaymentOnBlockchain(txid);
+              const isVerified = await verifyPaymentOnBlockchain(txid, paymentAmount);
 
               if (isVerified) {
                 console.log('✅ Payment verified on blockchain - marking as completed');

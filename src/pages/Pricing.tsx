@@ -27,7 +27,7 @@ const planIcons: Record<string, ComponentType<{ className?: string }>> = {
   'Free': Gift,
   'Basic': Star,
   'Starter': Rocket,
-  'Pro': Zap,
+  'Growth': Zap,
   'Enterprise': Crown,
 };
 
@@ -53,11 +53,11 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
   },
   {
     id: '3',
-    name: 'Pro',
+    name: 'Growth',
     description: 'Best for growing businesses',
     amount: 20,
     interval: 'monthly',
-    features: ['10 Payment Links', 'Free + One-time + Recurring payments', 'Advanced analytics', '2% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
+    features: ['200 Payment Links', 'Advanced analytics', '1% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
     is_active: true,
   },
   {
@@ -299,7 +299,7 @@ export default function Pricing() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {plans.map((plan, index) => {
                 const Icon = planIcons[plan.name] || Zap;
-                const isPopular = plan.name === 'Pro';
+                const isPopular = plan.name === 'Growth';
                 return (
                   <Card
                     key={plan.id}
@@ -351,7 +351,7 @@ export default function Pricing() {
                           </>
                         ) : (
                           isPopular 
-                            ? `Upgrade to Pro for π${plan.amount}/${plan.interval}` 
+                            ? `Upgrade to Growth for π${plan.amount}/${plan.interval}` 
                             : `Subscribe for π${plan.amount}/${plan.interval}`
                         )}
                       </Button>

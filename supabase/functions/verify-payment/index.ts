@@ -100,41 +100,44 @@ serve(async (req) => {
     // Update the transaction in database with verification status
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    if (paymentLinkId) {
-      // Get the payment link to find the transaction
-      const { data: transactions, error: findError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('payment_link_id', paymentLinkId)
-        .eq('txid', txid)
-        .limit(1);
+    // Locate the latest matching transaction by txid.
+    // For checkout links, payment_link_id is null and source link lives in metadata.
+    const { data: transactions, error: findError } = await supabase
+      .from('transactions')
+      .select('id, payment_link_id, metadata, created_at')
+      .eq('txid', txid)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
-      if (!findError && transactions && transactions.length > 0) {
-        const update: Record<string, unknown> = {
-          blockchain_verified: verified,
-          sender_address: senderAddress,
-          receiver_address: receiverAddress,
-        };
+    if (!findError && transactions && transactions.length > 0) {
+      const matchedTx = paymentLinkId
+        ? transactions.find((tx: any) =>
+            tx.payment_link_id === paymentLinkId ||
+            (tx.metadata?.source_link_id === paymentLinkId)
+          ) || transactions[0]
+        : transactions[0];
 
-        // Do NOT mark a transaction as "failed" just because blockchain verification
-        // is delayed or we cannot fully validate receiver/memo yet.
-        if (verified) {
-          update.status = 'completed';
-        }
+      const update: Record<string, unknown> = {
+        blockchain_verified: verified,
+        sender_address: senderAddress,
+        receiver_address: receiverAddress,
+      };
 
-        const { error: updateError } = await supabase
-          .from('transactions')
-          .update(update)
-          .eq('id', transactions[0].id);
-        if (updateError) {
-          console.error('Error updating transaction:', updateError);
-        }
-      }
-
-      // Update conversions count on payment link
+      // Do NOT mark a transaction as "failed" just because blockchain verification
+      // is delayed or we cannot fully validate receiver/memo yet.
       if (verified) {
-        await supabase.rpc('increment_conversions', { link_id: paymentLinkId });
+        update.status = 'completed';
       }
+
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update(update)
+        .eq('id', matchedTx.id);
+      if (updateError) {
+        console.error('Error updating transaction:', updateError);
+      }
+    } else if (findError) {
+      console.error('Error finding transaction to update verification state:', findError);
     }
 
     return new Response(JSON.stringify({

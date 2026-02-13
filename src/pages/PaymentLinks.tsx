@@ -101,6 +101,8 @@ export default function PaymentLinks() {
     min_amount: '',
     suggested_amounts: [] as string[],
   });
+  const planName = plan?.name || 'Free';
+  const isGrowthTier = planName === 'Growth' || planName === 'Pro';
 
   useEffect(() => {
     if (!isAuthenticated || !piUser) return;
@@ -561,7 +563,7 @@ export default function PaymentLinks() {
                 {/* Pricing Type Toggle */}
                 <div className="space-y-2">
                   <Label>Pricing type</Label>
-                  {(isFreePlan || (plan && plan.name !== 'Enterprise')) && (
+                  {(isFreePlan || (plan && !['Growth', 'Pro', 'Enterprise'].includes(planName))) && (
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 mb-3">
                       <p className="text-xs text-amber-700 font-medium">
                         🚀 Upgrade to Unlock More Payment Types
@@ -571,18 +573,18 @@ export default function PaymentLinks() {
                           <>
                             <p>• <strong>Free:</strong> Free payment links only</p>
                             <p>• <strong>Basic:</strong> Free + One-time payments</p>
-                            <p>• <strong>Pro:</strong> Free + One-time + Recurring</p>
+                            <p>• <strong>Growth:</strong> Free + One-time + Recurring</p>
                             <p>• <strong>Enterprise:</strong> All types including Donations</p>
                           </>
                         )}
-                        {plan?.name === 'Basic' && (
+                        {planName === 'Basic' && (
                           <>
                             <p>✅ Available: Free + One-time payments</p>
-                            <p>🔒 Upgrade to Pro: Recurring payments</p>
+                            <p>🔒 Upgrade to Growth: Recurring payments</p>
                             <p>🔒 Upgrade to Enterprise: Donation payments</p>
                           </>
                         )}
-                        {plan?.name === 'Pro' && (
+                        {isGrowthTier && (
                           <>
                             <p>✅ Available: Free + One-time + Recurring</p>
                             <p>🔒 Upgrade to Enterprise: Donation payments</p>
@@ -601,15 +603,15 @@ export default function PaymentLinks() {
                         // Free plan: only 'free' type
                         isAvailable = type === 'free';
                         if (type === 'one_time') requiresPlan = 'Basic';
-                        if (type === 'recurring') requiresPlan = 'Pro';  
+                        if (type === 'recurring') requiresPlan = 'Growth';
                         if (type === 'donation') requiresPlan = 'Enterprise';
-                      } else if (plan?.name === 'Basic') {
+                      } else if (planName === 'Basic') {
                         // Basic plan: free + one_time
                         isAvailable = type === 'free' || type === 'one_time';
-                        if (type === 'recurring') requiresPlan = 'Pro';
+                        if (type === 'recurring') requiresPlan = 'Growth';
                         if (type === 'donation') requiresPlan = 'Enterprise';
-                      } else if (plan?.name === 'Pro') {
-                        // Pro plan: free + one_time + recurring
+                      } else if (isGrowthTier) {
+                        // Growth plan: free + one_time + recurring
                         isAvailable = type === 'free' || type === 'one_time' || type === 'recurring';
                         if (type === 'donation') requiresPlan = 'Enterprise';
                       }

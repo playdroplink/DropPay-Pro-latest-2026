@@ -548,13 +548,14 @@ export default function Withdrawals() {
             </DialogContent>
           </Dialog>
         </div>
+        </div>
 
-          {/* Payout Delay Note */}
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-sm text-amber-700">
-              Note: Payouts are processed manually and may take longer during high volume of withdrawals. Estimated arrival: {ESTIMATED_PAYOUT_TIME}. If your payout is delayed, please email support@droppay.space.
-            </p>
-          </div>
+        {/* Payout Delay Note */}
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <p className="text-sm text-amber-700">
+            Note: Payouts are processed manually and may take longer during high volume of withdrawals. Estimated arrival: {ESTIMATED_PAYOUT_TIME}. If your payout is delayed, please email support@droppay.space.
+          </p>
+        </div>
 
         {/* Balance Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -723,7 +724,6 @@ export default function Withdrawals() {
           </CardContent>
         </Card>
       </div>
-    </div>
     </DashboardLayout>
   );
 }

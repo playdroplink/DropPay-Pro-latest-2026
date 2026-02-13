@@ -28,7 +28,7 @@ type RawSubscriptionPlan = Omit<SubscriptionPlan, 'features'> & {
 const planIcons: Record<string, ComponentType<{ className?: string }>> = {
   Free: Zap,
   Basic: Star,
-  Pro: TrendingUp,
+  Growth: TrendingUp,
   Enterprise: Shield,
 };
 
@@ -52,11 +52,11 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
   },
   {
     id: '3',
-    name: 'Pro',
+    name: 'Growth',
     amount: 20,
-    link_limit: 10,
-    platform_fee_percent: 2,
-    features: ['Free + One-time + Recurring payments', 'Advanced analytics', '2% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
+    link_limit: 200,
+    platform_fee_percent: 1,
+    features: ['More payment links', 'Advanced analytics', '1% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
   },
   {
     id: '4',
@@ -107,9 +107,11 @@ export default function Subscription() {
     try {
       const { data, error } = await (supabase as any)
         .from('subscription_plans')
-        .select('id, name, amount, link_limit, platform_fee_percent, features')
+        .select('id, name, amount, link_limit, platform_fee_percent, features, created_at')
         .eq('name', planName)
         .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error || !data) {
@@ -179,23 +181,31 @@ export default function Subscription() {
     try {
       const { data, error } = await (supabase as any)
         .from('subscription_plans')
-        .select('id, name, amount, link_limit, platform_fee_percent, features')
+        .select('id, name, amount, link_limit, platform_fee_percent, features, created_at')
         .eq('is_active', true)
-        .order('amount', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
       }
 
       if (Array.isArray(data) && data.length > 0) {
-        const mappedPlans = (data as RawSubscriptionPlan[]).map((plan) => ({
+        const byName = new Map<string, any>();
+        for (const raw of data as any[]) {
+          const key = String(raw.name || '').trim().toLowerCase();
+          if (!key || byName.has(key)) continue;
+          byName.set(key, raw);
+        }
+
+        const mappedPlans = Array.from(byName.values()).map((plan: RawSubscriptionPlan) => ({
           id: plan.id,
           name: plan.name,
           amount: Number(plan.amount),
           link_limit: plan.link_limit,
           platform_fee_percent: Number(plan.platform_fee_percent),
           features: parseFeatures(plan.features),
-        }));
+        }))
+        .sort((a, b) => a.amount - b.amount);
         setPlans(mappedPlans);
         return;
       }
@@ -795,12 +805,12 @@ export default function Subscription() {
                 <Card
                   key={plan.id}
                   className={`relative ${
-                    plan.name === 'Pro'
+                    plan.name === 'Growth'
                       ? 'border-primary shadow-lg scale-105'
                       : 'border-border'
                   }`}
                 >
-                  {plan.name === 'Pro' && (
+                  {plan.name === 'Growth' && (
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                       <Badge className="bg-primary text-primary-foreground">
                         Most Popular
@@ -826,7 +836,7 @@ export default function Subscription() {
                     <CardDescription className="mt-2">
                       {plan.name === 'Free' && 'Perfect for getting started'}
                       {plan.name === 'Basic' && 'For small businesses'}
-                      {plan.name === 'Pro' && 'Best for growing businesses'}
+                      {plan.name === 'Growth' && 'Best for growing businesses'}
                       {plan.name === 'Enterprise' && 'For large scale operations'}
                     </CardDescription>
                   </CardHeader>
@@ -879,17 +889,13 @@ export default function Subscription() {
                             Processing...
                           </>
                         ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Switch to Free
-                          </>
+                          <>Change to Free</>
                         )}
                       </Button>
                     ) : (
                       <div className="space-y-2">
-                        {/* Pi Network Payment Button */}
                         <Button
-                          className="w-full bg-gray-400 hover:bg-gray-500"
+                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
                           onClick={() => handleUpgrade(plan)}
                           disabled={isProcessing || !isPiBrowser}
                         >
@@ -899,34 +905,13 @@ export default function Subscription() {
                               Processing...
                             </>
                           ) : (
-                            <>
-                              Subscribe with Pi Network
-                            </>
+                            <>Subscribe with Pi</>
                           )}
                         </Button>
-                        
-                        {/* DropPay Payment Button */}
-                        <Button
-                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                          onClick={() => handleUpgradeWithDropPay(plan)}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing && loadingPlanId === plan.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Creating Payment Link...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              Subscribe with DropPay
-                            </>
-                          )}
-                        </Button>
-                        
+
                         {!isPiBrowser && (
                           <p className="text-xs text-muted-foreground text-center">
-                            Pi Network payment requires Pi Browser. DropPay works in any browser.
+                            Pi Network payment requires Pi Browser.
                           </p>
                         )}
                       </div>

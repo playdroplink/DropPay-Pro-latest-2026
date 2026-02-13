@@ -234,7 +234,7 @@ export function DashboardCheckoutLinks() {
             <Crown className={`w-4 h-4 ${
               planName === 'Free' ? 'text-muted-foreground' :
               planName === 'Basic' ? 'text-blue-500' :
-              planName === 'Pro' ? 'text-purple-500' : 'text-blue-500'
+              (planName === 'Growth' || planName === 'Pro') ? 'text-purple-500' : 'text-blue-500'
             }`} />
             <span className="text-sm text-muted-foreground">
               {planName} Plan - {remainingLinks !== null ? `${remainingLinks} remaining` : 'Unlimited'} 
