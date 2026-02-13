@@ -84,6 +84,61 @@ serve(async (req: Request) => {
     );
   }
 
+  // Expired merchants cannot accept payments until renewal.
+  // If no subscription row exists, merchant is treated as Free and allowed.
+  if (paymentLinkId) {
+    const tableName = isCheckoutLink ? 'checkout_links' : 'payment_links';
+    const { data: preLink, error: preLinkError } = await supabase
+      .from(tableName)
+      .select('merchant_id, is_active')
+      .eq('id', paymentLinkId)
+      .maybeSingle();
+
+    if (preLinkError || !preLink) {
+      return new Response(
+        JSON.stringify({ error: 'Payment link not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!preLink.is_active) {
+      return new Response(
+        JSON.stringify({ error: 'Payment link is inactive' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: latestActiveSub, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select('status, current_period_end, expires_at, last_payment_at')
+      .eq('merchant_id', preLink.merchant_id)
+      .eq('status', 'active')
+      .order('current_period_end', { ascending: false, nullsFirst: false })
+      .order('last_payment_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (subError) {
+      return new Response(
+        JSON.stringify({ error: 'Subscription validation failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (latestActiveSub) {
+      const expiryValue = latestActiveSub.expires_at || latestActiveSub.current_period_end;
+      const isDateExpired = expiryValue ? new Date(expiryValue).getTime() < Date.now() : false;
+      const isExpired = isDateExpired;
+
+      if (isExpired) {
+        return new Response(
+          JSON.stringify({ error: 'Merchant subscription expired. Please renew plan to accept payments.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+  }
+
   try {
     const response = await fetch(
       `${PI_API_BASE}/payments/${paymentId}/complete`,
@@ -224,7 +279,7 @@ serve(async (req: Request) => {
           let planName = null;
           if (paymentType) {
             // Extract plan name from payment type/title
-            const planMatch = paymentType.match(/\b(Free|Basic|Pro|Enterprise)\b/i);
+            const planMatch = paymentType.match(/\b(Free|Basic|Growth|Pro|Scale|Enterprise)\b/i);
             if (planMatch) planName = planMatch[1];
           }
 
@@ -370,7 +425,7 @@ serve(async (req: Request) => {
 
             if (plans && plans.length > 0) {
               if (paymentType) {
-                const match = paymentType.match(/\b(Free|Basic|Pro|Enterprise)\b/i);
+                const match = paymentType.match(/\b(Free|Basic|Growth|Pro|Scale|Enterprise)\b/i);
                 if (match) targetPlan = plans.find(p => p.name.toLowerCase() === match[1].toLowerCase());
               }
               if (!targetPlan && amount) {

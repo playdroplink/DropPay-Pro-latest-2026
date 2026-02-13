@@ -937,19 +937,6 @@ export default function PayPage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Payment Instructions Button */}
-      <Button
-        onClick={() => {
-          console.log('🔘 Manual trigger clicked, current state:', showBrowserModal);
-          setShowBrowserModal(true);
-        }}
-        className="fixed top-4 right-4 z-50"
-        variant="outline"
-      >
-        <HelpCircle className="w-4 h-4 mr-2" />
-        Payment Instruction
-      </Button>
-
       {/* Pi Browser Instruction Modal */}
       <InstructionModal
         isOpen={showBrowserModal}
@@ -971,7 +958,23 @@ export default function PayPage() {
         imageUrl="https://i.ibb.co/KpdZ1vj4/media-83-2.gif"
       />
 
-      <Card className={`max-w-md w-full ${templateStyles.card}`}>
+      <div className="w-full max-w-md space-y-3">
+      {/* Payment Instructions Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            console.log('🔘 Manual trigger clicked, current state:', showBrowserModal);
+            setShowBrowserModal(true);
+          }}
+          variant="outline"
+          size="sm"
+        >
+          <HelpCircle className="w-4 h-4 mr-2" />
+          Payment Instructions
+        </Button>
+      </div>
+
+      <Card className={`w-full ${templateStyles.card}`}>
         <CardHeader className={`text-center ${templateStyles.header}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -1589,6 +1592,7 @@ export default function PayPage() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Terms of Service Modal */}
       <Dialog open={showTermsModal} onOpenChange={setShowTermsModal}>

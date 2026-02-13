@@ -19,6 +19,7 @@ function validatePaymentTypeForPlan(category: string, planName: string) {
     'Basic': ['ecommerce', 'restaurant', 'retail', 'services'], // Physical stores included
     'Pro': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'], // Legacy alias of Growth
     'Growth': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'], // All categories for Growth
+    'Scale': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'], // Same capabilities as Growth+
     'Enterprise': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'] // All categories
   };
 

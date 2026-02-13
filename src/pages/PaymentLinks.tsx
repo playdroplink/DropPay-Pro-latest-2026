@@ -102,7 +102,7 @@ export default function PaymentLinks() {
     suggested_amounts: [] as string[],
   });
   const planName = plan?.name || 'Free';
-  const isGrowthTier = planName === 'Growth' || planName === 'Pro';
+  const isGrowthTier = planName === 'Growth' || planName === 'Pro' || planName === 'Scale';
 
   useEffect(() => {
     if (!isAuthenticated || !piUser) return;
@@ -563,7 +563,7 @@ export default function PaymentLinks() {
                 {/* Pricing Type Toggle */}
                 <div className="space-y-2">
                   <Label>Pricing type</Label>
-                  {(isFreePlan || (plan && !['Growth', 'Pro', 'Enterprise'].includes(planName))) && (
+                  {(isFreePlan || (plan && !['Growth', 'Pro', 'Scale', 'Enterprise'].includes(planName))) && (
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 mb-3">
                       <p className="text-xs text-amber-700 font-medium">
                         🚀 Upgrade to Unlock More Payment Types

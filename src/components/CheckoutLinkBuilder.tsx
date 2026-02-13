@@ -311,6 +311,7 @@ export function CheckoutLinkBuilder({
       'Basic': ['ecommerce', 'restaurant', 'retail', 'services'],
       'Pro': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'],
       'Growth': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'],
+      'Scale': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services'],
       'Enterprise': ['ecommerce', 'saas', 'marketplaces', 'donations', 'gaming', 'education', 'restaurant', 'retail', 'services']
     };
     
@@ -491,7 +492,7 @@ export function CheckoutLinkBuilder({
               <CardTitle className="text-base flex items-center gap-2">
                 {planName === 'Free' && <Crown className="w-4 h-4 text-muted-foreground" />}
                 {planName === 'Basic' && <Crown className="w-4 h-4 text-blue-500" />}
-                {(planName === 'Growth' || planName === 'Pro') && <Crown className="w-4 h-4 text-purple-500" />}
+                {(planName === 'Growth' || planName === 'Pro' || planName === 'Scale') && <Crown className="w-4 h-4 text-purple-500" />}
                 {planName === 'Enterprise' && <Crown className="w-4 h-4 text-orange-500" />}
                 Current Plan: {planName}
               </CardTitle>

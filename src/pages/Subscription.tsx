@@ -29,6 +29,8 @@ const planIcons: Record<string, ComponentType<{ className?: string }>> = {
   Free: Zap,
   Basic: Star,
   Growth: TrendingUp,
+  Pro: TrendingUp,
+  Scale: TrendingUp,
   Enterprise: Shield,
 };
 
@@ -38,7 +40,7 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
     id: '1',
     name: 'Free',
     amount: 0,
-    link_limit: 1,
+    link_limit: 2,
     platform_fee_percent: 0,
     features: ['Free payment type only', 'Basic analytics', 'No platform fee', 'Community support'],
   },
@@ -46,7 +48,7 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
     id: '2',
     name: 'Basic',
     amount: 10,
-    link_limit: 5,
+    link_limit: 10,
     platform_fee_percent: 2,
     features: ['Free + One-time payments', 'Basic analytics', '2% platform fee (for maintenance & future features)', 'Email support'],
   },
@@ -54,17 +56,33 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
     id: '3',
     name: 'Growth',
     amount: 20,
-    link_limit: 200,
+    link_limit: 25,
     platform_fee_percent: 1,
-    features: ['More payment links', 'Advanced analytics', '1% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
+    features: ['Up to 25 payment links', 'Advanced analytics', '1% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
+  },
+  {
+    id: '5',
+    name: 'Pro',
+    amount: 30,
+    link_limit: 35,
+    platform_fee_percent: 1,
+    features: ['Up to 35 payment links', 'Advanced analytics', '1% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
+  },
+  {
+    id: '6',
+    name: 'Scale',
+    amount: 50,
+    link_limit: 55,
+    platform_fee_percent: 0.75,
+    features: ['Up to 55 payment links', 'Advanced analytics', '0.75% platform fee (for maintenance & future features)', 'Priority support', 'Custom branding', 'Tracking links'],
   },
   {
     id: '4',
     name: 'Enterprise',
-    amount: 50,
-    link_limit: null,
+    amount: 100,
+    link_limit: 100,
     platform_fee_percent: 2,
-    features: ['All payment types (Free + One-time + Recurring + Donations)', 'Full analytics suite', '2% platform fee (for maintenance & future features)', '24/7 Priority support', 'Custom integrations', 'Dedicated account manager'],
+    features: ['Up to 100 payment links', 'Full analytics suite', '2% platform fee (for maintenance & future features)', '24/7 Priority support', 'Custom integrations', 'Dedicated account manager'],
   },
 ];
 
@@ -837,6 +855,8 @@ export default function Subscription() {
                       {plan.name === 'Free' && 'Perfect for getting started'}
                       {plan.name === 'Basic' && 'For small businesses'}
                       {plan.name === 'Growth' && 'Best for growing businesses'}
+                      {plan.name === 'Pro' && 'For scaling businesses'}
+                      {plan.name === 'Scale' && 'For high-volume businesses'}
                       {plan.name === 'Enterprise' && 'For large scale operations'}
                     </CardDescription>
                   </CardHeader>

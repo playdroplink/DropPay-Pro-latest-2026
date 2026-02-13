@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+﻿import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -42,7 +42,7 @@ export function SubscriptionStatus() {
             <div>
               <CardTitle className="text-lg">{plan.name} Plan</CardTitle>
               <CardDescription>
-                {isFreePlan ? 'Limited features' : `π ${plan.amount}/month`}
+                {isFreePlan ? 'Limited features' : `Ï€ ${plan.amount}/month`}
               </CardDescription>
             </div>
           </div>
@@ -87,7 +87,7 @@ export function SubscriptionStatus() {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Payment Links</span>
             <span className="font-medium">
-              {linkCount} / {linkLimit === Infinity ? '∞' : linkLimit}
+              {linkCount} / {linkLimit === Infinity ? 'âˆž' : linkLimit}
             </span>
           </div>
           {linkLimit !== Infinity && (
@@ -113,9 +113,9 @@ export function SubscriptionStatus() {
           <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
             <h4 className="font-medium text-sm text-foreground mb-2">Free Plan Limits</h4>
             <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>• 1 payment link only</li>
-              <li>• Basic features</li>
-              <li>• 1% platform fee</li>
+              <li>â€¢ 2 payment links only</li>
+              <li>â€¢ Basic features</li>
+              <li>â€¢ 1% platform fee</li>
             </ul>
           </div>
         )}
@@ -152,13 +152,13 @@ export function SubscriptionStatus() {
             <h4 className="font-medium text-sm text-foreground mb-2">Your Benefits</h4>
             <ul className="space-y-1 text-xs text-muted-foreground">
               {plan.link_limit === null ? (
-                <li>• Unlimited payment links</li>
+                <li>â€¢ Unlimited payment links</li>
               ) : (
-                <li>• {plan.link_limit} payment links</li>
+                <li>â€¢ {plan.link_limit} payment links</li>
               )}
-              <li>• {plan.platform_fee_percent}% platform fee</li>
-              <li>• {plan.analytics_level === 'premium' ? 'Premium' : plan.analytics_level === 'advanced' ? 'Advanced' : 'Basic'} analytics</li>
-              <li>• Priority support</li>
+              <li>â€¢ {plan.platform_fee_percent}% platform fee</li>
+              <li>â€¢ {plan.analytics_level === 'premium' ? 'Premium' : plan.analytics_level === 'advanced' ? 'Advanced' : 'Basic'} analytics</li>
+              <li>â€¢ Priority support</li>
             </ul>
           </div>
         )}
@@ -166,3 +166,4 @@ export function SubscriptionStatus() {
     </Card>
   );
 }
+

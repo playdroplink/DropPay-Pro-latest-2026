@@ -1,5 +1,5 @@
 -- Normalize subscription tiers to:
--- Free, Basic, Growth (20 Pi), Enterprise
+-- Free (2 links), Basic (10 links), Growth (20 Pi / 25 links), Enterprise (100 links)
 -- and deactivate legacy Pro plans to avoid duplicate mid-tier options.
 -- Safe to run multiple times.
 
@@ -22,9 +22,9 @@ SELECT
   'Best for growing businesses',
   20,
   'monthly',
-  200,
+  25,
   1,
-  '["More payment links", "Advanced analytics", "Priority support", "Custom branding", "Tracking links"]'::jsonb,
+  '["25 payment links", "Advanced analytics", "Priority support", "Custom branding", "Tracking links"]'::jsonb,
   'advanced',
   true
 WHERE NOT EXISTS (SELECT 1 FROM existing_growth);
@@ -43,13 +43,29 @@ SET
   description = 'Best for growing businesses',
   amount = 20,
   "interval" = 'monthly',
-  link_limit = 200,
+  link_limit = 25,
   platform_fee_percent = 1,
-  features = '["More payment links", "Advanced analytics", "Priority support", "Custom branding", "Tracking links"]'::jsonb,
+  features = '["25 payment links", "Advanced analytics", "Priority support", "Custom branding", "Tracking links"]'::jsonb,
   analytics_level = 'advanced',
   is_active = true
 FROM active_growth g
 WHERE sp.id = g.id;
+
+-- 2b) Normalize active Free/Basic/Enterprise link limits
+UPDATE public.subscription_plans
+SET link_limit = 2
+WHERE lower(trim(name)) = 'free'
+  AND is_active = true;
+
+UPDATE public.subscription_plans
+SET link_limit = 10
+WHERE lower(trim(name)) = 'basic'
+  AND is_active = true;
+
+UPDATE public.subscription_plans
+SET link_limit = 100
+WHERE lower(trim(name)) = 'enterprise'
+  AND is_active = true;
 
 -- 3) Move subscriptions from active Pro plan(s) to active Growth plan
 WITH growth_plan AS (
