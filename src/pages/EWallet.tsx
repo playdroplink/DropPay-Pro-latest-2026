@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowUpRight, ArrowDownLeft, Wallet, Copy, Send, Loader2, QrCode, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface EWalletTransfer {
   id: string;
@@ -43,6 +44,7 @@ export default function EWallet() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isScannerStarting, setIsScannerStarting] = useState(false);
+  const [scannerInput, setScannerInput] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerStreamRef = useRef<MediaStream | null>(null);
   const scannerTimerRef = useRef<number | null>(null);
@@ -63,14 +65,11 @@ export default function EWallet() {
   const canTopUp = useMemo(() => {
     const parsedTopUp = Number(topUpAmount);
     return (
-      !!merchant?.id &&
-      !!piUser?.username &&
-      !!piUser?.uid &&
       Number.isFinite(parsedTopUp) &&
       parsedTopUp >= TOP_UP_MIN &&
       parsedTopUp <= TOP_UP_MAX
     );
-  }, [merchant?.id, piUser?.uid, piUser?.username, topUpAmount]);
+  }, [topUpAmount]);
 
   const refreshData = async () => {
     if (!merchant?.id || !piUser?.username || !piUser?.uid) return;
@@ -223,12 +222,10 @@ export default function EWallet() {
 
   const startScanner = async () => {
     if (!('BarcodeDetector' in window)) {
-      toast.error('QR scan is not supported on this browser');
       return;
     }
 
     setIsScannerStarting(true);
-    setIsScannerOpen(true);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -271,6 +268,42 @@ export default function EWallet() {
     }
   };
 
+  const openScannerModal = async () => {
+    setIsScannerOpen(true);
+    if (!('BarcodeDetector' in window)) {
+      toast.info('Camera QR scan is not supported here. Use paste/manual QR below.');
+      return;
+    }
+    await startScanner();
+  };
+
+  const applyScannerInput = () => {
+    if (!scannerInput.trim()) {
+      toast.error('Paste or enter QR data first');
+      return;
+    }
+    const parsed = parseScannedQr(scannerInput);
+    if (parsed) {
+      toast.success('QR data applied to Express Send');
+      setScannerInput('');
+      stopScanner();
+    } else {
+      toast.error('Invalid wallet QR data');
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setScannerInput(text || '');
+      if (!text) {
+        toast.error('Clipboard is empty');
+      }
+    } catch {
+      toast.error('Clipboard access blocked. Paste manually.');
+    }
+  };
+
   const handleTopUp = async () => {
     if (!merchant?.id || !piUser?.username || !piUser?.uid) {
       toast.error('Please sign in again to continue');
@@ -294,9 +327,23 @@ export default function EWallet() {
 
     const Pi = (window as any).Pi;
     setIsTopUpProcessing(true);
+    let topUpTimeout: number | null = null;
+
+    const clearTopUpTimeout = () => {
+      if (topUpTimeout) {
+        window.clearTimeout(topUpTimeout);
+        topUpTimeout = null;
+      }
+    };
 
     try {
-      await Pi.createPayment(
+      topUpTimeout = window.setTimeout(() => {
+        setIsTopUpProcessing(false);
+        toast.error('Top up timed out. Please try again.');
+      }, 120000);
+
+      // Pi SDK createPayment is callback-based (not a promise in all runtimes).
+      Pi.createPayment(
         {
           amount: parsedTopUpAmount,
           memo: `Wallet Top Up - ${parsedTopUpAmount} Credits`,
@@ -309,47 +356,63 @@ export default function EWallet() {
         },
         {
           onReadyForServerApproval: async (paymentId: string) => {
-            const approval = await supabase.functions.invoke('approve-payment', {
-              body: { paymentId },
-            });
-            if (approval.error) throw approval.error;
+            try {
+              const approval = await supabase.functions.invoke('approve-payment', {
+                body: { paymentId },
+              });
+              if (approval.error) throw approval.error;
+            } catch (error: any) {
+              clearTopUpTimeout();
+              setIsTopUpProcessing(false);
+              throw error;
+            }
           },
           onReadyForServerCompletion: async (paymentId: string, txid: string) => {
-            const completion = await supabase.functions.invoke('complete-payment', {
-              body: {
-                paymentId,
-                txid,
-                payerUsername: piUser.username,
-                merchantId: merchant.id,
-                paymentType: 'wallet_topup',
-                amount: parsedTopUpAmount,
-              },
-            });
+            try {
+              const completion = await supabase.functions.invoke('complete-payment', {
+                body: {
+                  paymentId,
+                  txid,
+                  payerUsername: piUser.username,
+                  merchantId: merchant.id,
+                  paymentType: 'wallet_topup',
+                  amount: parsedTopUpAmount,
+                },
+              });
 
-            if (completion.error) throw completion.error;
+              if (completion.error) throw completion.error;
 
-            const { data, error } = await (supabase as any).rpc('topup_wallet_credit', {
-              merchant_uuid: merchant.id,
-              pi_username_input: piUser.username,
-              pi_user_id_input: piUser.uid,
-              topup_amount: parsedTopUpAmount,
-              payment_id: paymentId,
-              payment_txid: txid,
-            });
+              const { data, error } = await (supabase as any).rpc('topup_wallet_credit', {
+                merchant_uuid: merchant.id,
+                pi_username_input: piUser.username,
+                pi_user_id_input: piUser.uid,
+                topup_amount: parsedTopUpAmount,
+                payment_id: paymentId,
+                payment_txid: txid,
+              });
 
-            if (error) throw error;
-            if (!data?.success) throw new Error('Top up crediting failed');
+              if (error) throw error;
+              if (!data?.success) throw new Error('Top up crediting failed');
 
-            toast.success(`Top up successful: ${parsedTopUpAmount.toFixed(7)} credits added`);
-            setTopUpAmount('');
-            await refreshData();
-            setIsTopUpProcessing(false);
+              toast.success(`Top up successful: ${parsedTopUpAmount.toFixed(7)} credits added`);
+              setTopUpAmount('');
+              await refreshData();
+              clearTopUpTimeout();
+              setIsTopUpProcessing(false);
+            } catch (error: any) {
+              clearTopUpTimeout();
+              console.error('Top up completion error:', error);
+              toast.error(error?.message || 'Top up failed');
+              setIsTopUpProcessing(false);
+            }
           },
           onCancel: () => {
+            clearTopUpTimeout();
             toast.info('Top up cancelled');
             setIsTopUpProcessing(false);
           },
           onError: (error: any) => {
+            clearTopUpTimeout();
             console.error('Top up payment error:', error);
             toast.error(error?.message || 'Top up failed');
             setIsTopUpProcessing(false);
@@ -357,6 +420,7 @@ export default function EWallet() {
         }
       );
     } catch (error: any) {
+      clearTopUpTimeout();
       console.error('Top up failed:', error);
       toast.error(error?.message || 'Top up failed');
       setIsTopUpProcessing(false);
@@ -474,7 +538,7 @@ export default function EWallet() {
                   <Copy className="w-4 h-4 mr-2" />
                   Copy Username
                 </Button>
-                <Button variant="outline" onClick={startScanner} disabled={isScannerStarting} className="flex-1">
+                <Button variant="outline" onClick={openScannerModal} disabled={isScannerStarting} className="flex-1">
                   <Camera className="w-4 h-4 mr-2" />
                   Scan QR
                 </Button>
@@ -599,25 +663,51 @@ export default function EWallet() {
           </CardContent>
         </Card>
 
-        {isScannerOpen && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
+        <Dialog
+          open={isScannerOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              stopScanner();
+            } else {
+              setIsScannerOpen(true);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
                 <QrCode className="w-5 h-5 mr-2" />
                 Scan Wallet QR
-              </CardTitle>
-              <CardDescription>Point camera at a DropPay wallet QR code.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <video ref={videoRef} className="w-full rounded-lg border bg-black" autoPlay muted playsInline />
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={stopScanner}>
-                  Close Scanner
-                </Button>
+              </DialogTitle>
+              <DialogDescription>
+                Scan with camera, or paste QR payload for devices without camera scanning.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {'BarcodeDetector' in window ? (
+                <video ref={videoRef} className="w-full rounded-lg border bg-black" autoPlay muted playsInline />
+              ) : (
+                <div className="p-3 rounded-lg border text-sm text-muted-foreground">
+                  Camera QR scanning not available on this device/browser.
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="qrManual">QR Data</Label>
+                <Input
+                  id="qrManual"
+                  placeholder="droppay://wallet?u=username&a=10&n=note"
+                  value={scannerInput}
+                  onChange={(e) => setScannerInput(e.target.value)}
+                />
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={pasteFromClipboard}>Paste</Button>
+                <Button onClick={applyScannerInput}>Apply QR</Button>
+                <Button variant="outline" onClick={stopScanner}>Close</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Card>
           <CardHeader>

@@ -12,6 +12,7 @@ import dropPayLogo from '@/assets/droppay-logo.png';
 import { PlatformFeeModal } from '@/components/PlatformFeeModal';
 import { InstructionModal } from '@/components/InstructionModal';
 import { TransactionReceipt } from '@/components/TransactionReceipt';
+import { getPiModeLabel, getPiSandboxMode } from '@/lib/piMode';
 import {
   Dialog,
   DialogContent,
@@ -357,8 +358,8 @@ export default function PayPage() {
       const Pi = (window as any).Pi;
       
       // Pi SDK is already initialized in AuthContext - do not re-initialize
-      const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-      console.log('💳 Using Pi SDK with config:', { sandbox: sandboxMode, mainnet: !sandboxMode });
+      const sandboxMode = getPiSandboxMode();
+      console.log('💳 Using Pi SDK with config:', { sandbox: sandboxMode, mode: getPiModeLabel() });
       
       const scopes = ['username', 'payments', 'wallet_address'];
       console.log('📋 Requesting authentication scopes:', scopes);
@@ -620,8 +621,8 @@ export default function PayPage() {
         }
         
         // Pi SDK is already initialized in AuthContext with correct mainnet config
-        const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-        console.log('💳 Creating payment with config:', { sandbox: sandboxMode, mainnet: !sandboxMode, piSdkReady: true });
+        const sandboxMode = getPiSandboxMode();
+        console.log('💳 Creating payment with config:', { sandbox: sandboxMode, mode: getPiModeLabel(), piSdkReady: true });
 
         const paymentAmount = paymentLink.pricing_type === 'free'
           ? paymentLink.amount // No platform fee for free payment links

@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { PlatformFeeModal } from '@/components/PlatformFeeModal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getPiModeLabel, getPiSandboxMode } from '@/lib/piMode';
 
 interface SubscriptionPlan {
   id: string;
@@ -517,8 +518,8 @@ export default function Subscription() {
       
       // Ensure Pi SDK is initialized for production mainnet
       console.log('🔧 Initializing Pi SDK for mainnet payment...');
-      const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-      console.log('🔧 Initializing Pi SDK with sandbox:', sandboxMode);
+      const sandboxMode = getPiSandboxMode();
+      console.log('🔧 Initializing Pi SDK:', { sandbox: sandboxMode, mode: getPiModeLabel() });
       await Pi.init({ version: '2.0', sandbox: sandboxMode });
 
       await Pi.createPayment(paymentData, {

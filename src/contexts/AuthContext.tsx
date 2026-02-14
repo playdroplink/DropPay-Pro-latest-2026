@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { PiNetworkValidator } from '@/lib/piNetworkValidator';
+import { getPiSandboxMode, getPiModeLabel } from '@/lib/piMode';
 
 export interface PiUser {
   uid: string;
@@ -81,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (window.Pi && isPiDetected) {
           // Initialize Pi SDK with sandbox mode from environment configuration
-          const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-          const currentMode = sandboxMode ? 'sandbox/testnet' : 'mainnet';
+          const sandboxMode = getPiSandboxMode();
+          const currentMode = getPiModeLabel();
           console.log('🔧 Pi SDK initialization:', { sandbox: sandboxMode, mode: currentMode });
           
           window.Pi.init({ 
@@ -370,8 +371,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isSdkReady || !window.Pi.authenticate) {
         console.log('⏳ Reinitializing Pi SDK due to missing methods...');
         try {
-          const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-          const mode = sandboxMode ? 'sandbox/testnet' : 'mainnet';
+          const sandboxMode = getPiSandboxMode();
+          const mode = getPiModeLabel();
           console.log('🔧 Re-initializing Pi SDK:', { sandbox: sandboxMode, mode });
           await window.Pi.init({
             version: "2.0",

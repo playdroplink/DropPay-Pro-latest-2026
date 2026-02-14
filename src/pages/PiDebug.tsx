@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { getPiModeLabel, getPiSandboxMode } from '@/lib/piMode';
 
 export default function PiDebug() {
   const [sdkStatus, setSdkStatus] = useState<any>({});
@@ -40,8 +41,8 @@ export default function PiDebug() {
   const testSDKInit = async () => {
     try {
       addLog('🔧 Testing Pi.init()...');
-      const sandboxMode = import.meta.env.VITE_PI_SANDBOX_MODE === 'true';
-      addLog(`📝 Sandbox mode from env: ${sandboxMode}`);
+      const sandboxMode = getPiSandboxMode();
+      addLog(`📝 Sandbox mode: ${sandboxMode} (${getPiModeLabel()})`);
 
       if (!window.Pi) {
         addLog('❌ window.Pi not available');
@@ -156,7 +157,7 @@ export default function PiDebug() {
           <h2 className="text-xl font-semibold text-white mb-4">SDK Status</h2>
           <div className="space-y-2 text-sm font-mono text-slate-300">
             <div>window.Pi available: <span className={sdkStatus.windowPi ? 'text-green-400' : 'text-red-400'}>{sdkStatus.windowPi ? '✅ Yes' : '❌ No'}</span></div>
-            <div>Environment: {import.meta.env.VITE_PI_SANDBOX_MODE === 'true' ? '🧪 Sandbox' : '🌐 Mainnet'}</div>
+            <div>Environment: {getPiSandboxMode() ? '🧪 Sandbox' : '🌐 Mainnet'}</div>
             <div>Hostname: {sdkStatus.hostname}</div>
             <div>User Agent: {sdkStatus.userAgent}...</div>
           </div>
@@ -224,7 +225,7 @@ export default function PiDebug() {
         <Card className="bg-slate-800 border-slate-700 p-6">
           <h2 className="text-xl font-semibold text-white mb-4">📋 Info</h2>
           <div className="text-sm text-slate-300 space-y-2">
-            <p><strong>Sandbox Mode:</strong> {import.meta.env.VITE_PI_SANDBOX_MODE === 'true' ? '✅ Enabled' : '❌ Disabled'}</p>
+            <p><strong>Sandbox Mode:</strong> {getPiSandboxMode() ? '✅ Enabled' : '❌ Disabled'}</p>
             <p><strong>Network:</strong> {import.meta.env.VITE_PI_NETWORK}</p>
             <p><strong>For sandbox testing:</strong></p>
             <ul className="list-disc list-inside ml-2 space-y-1 text-slate-400">
