@@ -401,6 +401,8 @@ export default function EWallet() {
     };
 
     try {
+      await Pi.init({ version: '2.0', sandbox: false });
+
       topUpTimeout = window.setTimeout(() => {
         setIsTopUpProcessing(false);
         toast.error('Top up timed out. Please try again.');

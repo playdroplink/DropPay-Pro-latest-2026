@@ -26,6 +26,7 @@ serve(async (req) => {
     const { txid, expectedAmount, merchantWallet, paymentLinkId } = await req.json();
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const PI_API_KEY = Deno.env.get('PI_API_KEY');
 
     console.log('Verifying payment on blockchain:', { txid, expectedAmount, merchantWallet });
 
@@ -38,11 +39,16 @@ serve(async (req) => {
 
     // Query Pi Network mainnet API to verify transaction
     // Use Pi Network API v2 where available; fallback kept to mainnet endpoint if needed
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (PI_API_KEY) {
+      headers.Authorization = `Key ${PI_API_KEY}`;
+    }
+
     const blockchainResponse = await fetch(`https://api.minepi.com/v2/transactions/${txid}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!blockchainResponse.ok) {

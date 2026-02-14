@@ -1,4 +1,4 @@
-project_id = "reyhsdlsvclpzsgecoyf"
+project_id = "xoofailhzhfyebzpzrfs"
 
 # Pi Network Payment Functions Configuration
 # verify_jwt = false is required because Pi SDK doesn't provide Supabase JWT tokens

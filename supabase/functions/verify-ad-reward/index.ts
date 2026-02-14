@@ -57,29 +57,33 @@ serve(async (req: Request) => {
 
     // Verify ad status with Pi Platform API
     const piApiKey = Deno.env.get('PI_API_KEY');
+    if (!piApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'PI_API_KEY not configured in Supabase secrets' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     const piApiUrl = `https://api.minepi.com/v2/ads_network/status/${adId}`;
 
     let mediatorAckStatus = null;
     let mediatorGrantedAt = null;
     let mediatorRevokedAt = null;
 
-    if (piApiKey) {
-      try {
-        const piResponse = await fetch(piApiUrl, {
-          headers: {
-            'Authorization': `Key ${piApiKey}`,
-          },
-        });
+    try {
+      const piResponse = await fetch(piApiUrl, {
+        headers: {
+          'Authorization': `Key ${piApiKey}`,
+        },
+      });
 
-        if (piResponse.ok) {
-          const piData = await piResponse.json();
-          mediatorAckStatus = piData.mediator_ack_status;
-          mediatorGrantedAt = piData.mediator_granted_at;
-          mediatorRevokedAt = piData.mediator_revoked_at;
-        }
-      } catch (error) {
-        console.error('Error verifying with Pi API:', error);
+      if (piResponse.ok) {
+        const piData = await piResponse.json();
+        mediatorAckStatus = piData.mediator_ack_status;
+        mediatorGrantedAt = piData.mediator_granted_at;
+        mediatorRevokedAt = piData.mediator_revoked_at;
       }
+    } catch (error) {
+      console.error('Error verifying with Pi API:', error);
     }
 
     // Determine reward amount and status
@@ -111,17 +115,28 @@ serve(async (req: Request) => {
     // If verified, credit the merchant's balance
     if (verified && reward) {
       try {
-        // Add reward to merchant's available balance using raw SQL
-        const { error: updateError } = await supabase.rpc('exec_sql', {
-          query: `UPDATE merchants 
-                  SET available_balance = COALESCE(available_balance, 0) + $1,
-                      total_revenue = COALESCE(total_revenue, 0) + $1
-                  WHERE id = $2`,
-          params: [rewardAmount, merchantId]
-        });
+        const { data: merchantRow, error: merchantFetchError } = await supabase
+          .from('merchants')
+          .select('available_balance, total_revenue')
+          .eq('id', merchantId)
+          .maybeSingle();
 
-        if (updateError) {
-          console.log('Note: Balance update will be handled by database trigger:', updateError);
+        if (merchantFetchError) {
+          throw merchantFetchError;
+        }
+
+        if (merchantRow) {
+          const { error: updateError } = await supabase
+            .from('merchants')
+            .update({
+              available_balance: Number(merchantRow.available_balance || 0) + rewardAmount,
+              total_revenue: Number(merchantRow.total_revenue || 0) + rewardAmount,
+            })
+            .eq('id', merchantId);
+
+          if (updateError) {
+            throw updateError;
+          }
         }
 
         // Create notification for merchant
@@ -132,7 +147,7 @@ serve(async (req: Request) => {
             title: '🎉 Ad Reward Earned!',
             message: `You earned π${rewardAmount.toFixed(4)} from watching an ad!`,
             type: 'success',
-            read: false,
+            is_read: false,
           });
 
         if (notificationError) {
