@@ -19,7 +19,6 @@ import {
   Play,
   Crown,
   BookOpen,
-  MapPin,
   MessageCircle,
   HelpCircle,
 } from 'lucide-react';
@@ -67,7 +66,6 @@ const navSections: NavSection[] = [
   {
     title: 'Growth',
     items: [
-      { icon: MapPin, label: 'Global Map', href: '/dashboard/map' },
       { icon: Play, label: 'Watch Ads & Earn', href: '/dashboard/watch-ads' },
     ],
   },

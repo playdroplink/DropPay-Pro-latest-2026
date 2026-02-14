@@ -58,7 +58,6 @@ import Marketplaces from "./pages/Marketplaces";
 import Donations from "./pages/Donations";
 import Gaming from "./pages/Gaming";
 import Education from "./pages/Education";
-import DroppayMap from "./pages/DroppayMap";
 import PiNetworkDebugPanel from "./components/PiNetworkDebugPanel";
 
 import ECommerceDemo from "./pages/demos/ECommerceDemo";
@@ -117,7 +116,6 @@ const App = () => {
                 <Route path="/dashboard/subscription" element={<PiAuthGuard><Subscription /></PiAuthGuard>} />
                 <Route path="/dashboard/store" element={<PiAuthGuard><Storefront /></PiAuthGuard>} />
                 <Route path="/dashboard/help" element={<PiAuthGuard><Help /></PiAuthGuard>} />
-                <Route path="/dashboard/map" element={<PiAuthGuard><DroppayMap /></PiAuthGuard>} />
                 <Route path="/dashboard/pi-debug" element={<PiAuthGuard><PiNetworkDebugPanel /></PiAuthGuard>} />
                 <Route path="/auth-debug" element={<PiAuthGuard><PiNetworkDebugPanel /></PiAuthGuard>} />
                 <Route path="/dashboard/checkout-links" element={<PiAuthGuard><DashboardCheckoutLinks /></PiAuthGuard>} />

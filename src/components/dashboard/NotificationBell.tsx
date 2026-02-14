@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Bell, Check, X, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -44,41 +49,27 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    if (merchant) {
-      fetchNotifications();
-      const unsubscribe = subscribeToNotifications();
-      
-      return () => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      };
-    }
-  }, [merchant]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!merchant) return;
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('merchant_id', merchant.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (error) throw error;
 
       setNotifications(data || []);
       setUnreadCount(data?.filter((n: Notification) => !n.is_read).length || 0);
-      console.log('✅ Notifications loaded:', data?.length || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
-  };
+  }, [merchant]);
 
-  const subscribeToNotifications = () => {
+  const subscribeToNotifications = useCallback(() => {
     if (!merchant) return;
 
     const channel = supabase
@@ -92,43 +83,46 @@ export function NotificationBell() {
           filter: `merchant_id=eq.${merchant.id}`,
         },
         (payload) => {
-          console.log('🔔 New notification received:', payload.new);
-          setNotifications(prev => [payload.new as Notification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          
-          // Show toast notification
           const notification = payload.new as Notification;
+          setNotifications((prev) => [notification, ...prev]);
+          setUnreadCount((prev) => prev + 1);
           toast(notification.title, {
             description: notification.message,
             duration: 5000,
           });
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Notification subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('🛑 Unsubscribing from notifications');
       supabase.removeChannel(channel);
     };
-  };
+  }, [merchant]);
+
+  useEffect(() => {
+    if (!merchant) return;
+
+    fetchNotifications();
+    const unsubscribe = subscribeToNotifications();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [merchant, fetchNotifications, subscribeToNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('id', notificationId);
 
       if (error) throw error;
 
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
-        )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -138,7 +132,7 @@ export function NotificationBell() {
     if (!merchant) return;
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('merchant_id', merchant.id)
@@ -146,9 +140,7 @@ export function NotificationBell() {
 
       if (error) throw error;
 
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() })));
       setUnreadCount(0);
       toast.success('All notifications marked as read');
     } catch (error) {
@@ -159,14 +151,14 @@ export function NotificationBell() {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications')
         .delete()
         .eq('id', notificationId);
 
       if (error) throw error;
 
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       toast.success('Notification deleted');
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -175,42 +167,39 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end">
-        <Card className="border-0 shadow-none">
-          <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Notifications</CardTitle>
+    <>
+      <Button variant="ghost" size="icon" className="relative" onClick={() => setIsOpen(true)}>
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <Badge
+            variant="destructive"
+            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </Badge>
+        )}
+      </Button>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="w-[95vw] max-w-xl p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b">
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>Notifications</DialogTitle>
               {unreadCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
-                  className="text-xs"
-                >
+                <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs">
                   Mark all read
                 </Button>
               )}
             </div>
-            {unreadCount > 0 && (
-              <CardDescription>{unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[400px]">
+            <DialogDescription>
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                : 'All caught up'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-0">
+            <ScrollArea className="h-[65vh] sm:h-[420px]">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Bell className="h-12 w-12 mb-2 opacity-20" />
@@ -220,14 +209,13 @@ export function NotificationBell() {
                 <div className="divide-y">
                   {notifications.map((notification) => {
                     const Icon = notificationIcons[notification.type as keyof typeof notificationIcons] || Info;
-                    const iconColor = notificationColors[notification.type as keyof typeof notificationColors] || 'text-gray-500';
+                    const iconColor =
+                      notificationColors[notification.type as keyof typeof notificationColors] || 'text-gray-500';
 
                     return (
                       <div
                         key={notification.id}
-                        className={`p-4 hover:bg-accent/50 transition-colors ${
-                          !notification.is_read ? 'bg-accent/20' : ''
-                        }`}
+                        className={`p-4 hover:bg-accent/50 transition-colors ${!notification.is_read ? 'bg-accent/20' : ''}`}
                       >
                         <div className="flex items-start gap-3">
                           <div className={`mt-1 ${iconColor}`}>
@@ -235,9 +223,7 @@ export function NotificationBell() {
                           </div>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-start justify-between gap-2">
-                              <p className="font-medium text-sm leading-tight">
-                                {notification.title}
-                              </p>
+                              <p className="font-medium text-sm leading-tight">{notification.title}</p>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -247,9 +233,7 @@ export function NotificationBell() {
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground leading-snug">
-                              {notification.message}
-                            </p>
+                            <p className="text-sm text-muted-foreground leading-snug">{notification.message}</p>
                             <div className="flex items-center justify-between pt-1">
                               <p className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
@@ -274,9 +258,9 @@ export function NotificationBell() {
                 </div>
               )}
             </ScrollArea>
-          </CardContent>
-        </Card>
-      </PopoverContent>
-    </Popover>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

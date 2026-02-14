@@ -120,13 +120,6 @@ export function Footer() {
                   </Link>
                 </Button>
               </li>
-              <li>
-                <Button variant="link" className="px-0 text-muted-foreground hover:text-primary transition-colors justify-start h-auto font-normal" asChild>
-                  <Link to="/dashboard/map">
-                    Global Map
-                  </Link>
-                </Button>
-              </li>
             </ul>
           </div>
 

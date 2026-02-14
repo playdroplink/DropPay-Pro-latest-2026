@@ -174,16 +174,32 @@ export default function Subscription() {
           .from('merchants')
           .select('id')
           .eq('pi_user_id', uid)
+          .limit(1)
           .maybeSingle();
         if (data?.id) return data.id;
       }
 
       if (username) {
+        const normalizedUsername = username.replace(/^@/, '').trim();
         const { data } = await supabase
           .from('merchants')
           .select('id')
-          .eq('pi_username', username)
+          .ilike('pi_username', normalizedUsername)
+          .limit(1)
           .maybeSingle();
+        if (data?.id) return data.id;
+      }
+
+      if (uid && username) {
+        const normalizedUsername = username.replace(/^@/, '').trim();
+        const { data } = await supabase
+          .from('merchants')
+          .insert({
+            pi_user_id: uid,
+            pi_username: normalizedUsername,
+          })
+          .select('id')
+          .single();
         if (data?.id) return data.id;
       }
     } catch (error) {

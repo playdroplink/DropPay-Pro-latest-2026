@@ -59,6 +59,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPiBrowser, setIsPiBrowser] = useState(false);
   const [isAdSupported, setIsAdSupported] = useState(false);
 
+  const resolveOrCreateMerchantProfile = useCallback(async (user: PiUser): Promise<Merchant | null> => {
+    const normalizedUsername = (user.username || '').replace(/^@/, '').trim();
+    if (!user.uid || !normalizedUsername) return null;
+
+    const fetchByUserId = async () => {
+      const { data } = await supabase
+        .from('merchants')
+        .select('*')
+        .eq('pi_user_id', user.uid)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    };
+
+    const fetchByUsername = async () => {
+      const { data } = await supabase
+        .from('merchants')
+        .select('*')
+        .ilike('pi_username', normalizedUsername)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    };
+
+    let merchantData = await fetchByUserId();
+    if (!merchantData) {
+      merchantData = await fetchByUsername();
+    }
+
+    if (merchantData) {
+      if (
+        merchantData.pi_user_id !== user.uid ||
+        (user.wallet_address && merchantData.wallet_address !== user.wallet_address)
+      ) {
+        const { data: updatedMerchant } = await supabase
+          .from('merchants')
+          .update({
+            pi_user_id: user.uid,
+            wallet_address: user.wallet_address || merchantData.wallet_address,
+          })
+          .eq('id', merchantData.id)
+          .select('*')
+          .single();
+        merchantData = updatedMerchant || merchantData;
+      }
+      return merchantData;
+    }
+
+    const { data: createdMerchant, error: createError } = await supabase
+      .from('merchants')
+      .insert({
+        pi_user_id: user.uid,
+        pi_username: normalizedUsername,
+        wallet_address: user.wallet_address,
+      })
+      .select('*')
+      .single();
+
+    if (!createError && createdMerchant) {
+      return createdMerchant;
+    }
+
+    // Handle race/unique conflict by re-fetching once.
+    merchantData = await fetchByUserId();
+    if (!merchantData) {
+      merchantData = await fetchByUsername();
+    }
+    return merchantData || null;
+  }, []);
+
   // Initialize Pi SDK
   useEffect(() => {
     const initializePiSdk = async () => {
@@ -161,39 +231,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (user.uid && user.username) {
               setPiUser(user);
               
-              // Fetch or create merchant profile
-              console.log('🔍 Fetching merchant profile for:', user.uid);
-              const { data: merchantData, error: merchantError } = await supabase
-                .from('merchants')
-                .select('*')
-                .eq('pi_user_id', user.uid)
-                .maybeSingle();
-
-              if (merchantError) {
-                console.error('❌ Error fetching merchant:', merchantError);
-              } else if (merchantData) {
-                console.log('✅ Merchant profile found:', merchantData);
+              const merchantData = await resolveOrCreateMerchantProfile(user);
+              if (merchantData) {
                 setMerchant(merchantData);
+                console.log('✅ Merchant profile ready:', merchantData.id);
               } else {
-                // Auto-create merchant profile if not exists
-                console.log('📝 Creating new merchant profile...');
-                
-                const { data: newMerchant, error: createError } = await supabase
-                  .from('merchants')
-                  .insert({
-                    pi_user_id: user.uid,
-                    pi_username: user.username,
-                    wallet_address: user.wallet_address,
-                  })
-                  .select()
-                  .single();
-
-                if (createError) {
-                  console.error('❌ Error creating merchant:', createError);
-                } else {
-                  console.log('✅ Merchant profile created:', newMerchant);
-                  setMerchant(newMerchant);
-                }
+                console.error('❌ Failed to resolve merchant profile');
               }
               
               setIsLoading(false);
@@ -222,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isSdkReady) {
       restoreSession();
     }
-  }, [isSdkReady]);
+  }, [isSdkReady, resolveOrCreateMerchantProfile]);
 
 
   const triggerWelcomeAd = async () => {
@@ -449,42 +492,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPiUser(piUser);
       console.log('💾 Session stored following official patterns');
 
-      // Fetch or create merchant profile
       console.log('🔍 Fetching/creating merchant profile...');
-      const { data: merchantData, error: merchantError } = await supabase
-        .from('merchants')
-        .select('*')
-        .eq('pi_user_id', piUser.uid)
-        .maybeSingle();
-
-      if (merchantError) {
-        console.error('❌ Error fetching merchant:', merchantError);
-      } else if (merchantData) {
-        console.log('✅ Merchant profile found:', merchantData);
-        setMerchant(merchantData);
-        toast.success(`🎉 Welcome back, ${piUser.username}!`);
+      const merchantData = await resolveOrCreateMerchantProfile(piUser);
+      if (!merchantData) {
+        toast.error('Failed to load merchant profile');
       } else {
-        // Auto-create merchant profile if not exists
-        console.log('📝 Creating new merchant profile...');
-        
-        const { data: newMerchant, error: createError } = await supabase
-          .from('merchants')
-          .insert({
-            pi_user_id: piUser.uid,
-            pi_username: piUser.username,
-            wallet_address: piUser.wallet_address,
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('❌ Error creating merchant:', createError);
-          toast.error('Failed to create merchant profile');
-        } else {
-          console.log('✅ Merchant profile created:', newMerchant);
-          setMerchant(newMerchant);
-          toast.success(`🎉 Welcome, ${piUser.username}!`);
-        }
+        setMerchant(merchantData);
+        toast.success(`🎉 Welcome, ${piUser.username}!`);
       }
       
       console.log('✅ Authentication completed with merchant profile');

@@ -30,6 +30,7 @@ const QR_PREFIX = 'droppay://wallet';
 
 export default function EWallet() {
   const { merchant, piUser, isAuthenticated, isLoading, isPiBrowser } = useAuth();
+  const [resolvedMerchantId, setResolvedMerchantId] = useState<string | null>(merchant?.id || null);
   const [availableBalance, setAvailableBalance] = useState(0);
   const [revenueBalance, setRevenueBalance] = useState(0);
   const [transfers, setTransfers] = useState<EWalletTransfer[]>([]);
@@ -52,7 +53,7 @@ export default function EWallet() {
   const canSend = useMemo(() => {
     const parsedAmount = Number(amount);
     return (
-      !!merchant?.id &&
+      !!(merchant?.id || resolvedMerchantId) &&
       !!piUser?.username &&
       !!piUser?.uid &&
       receiverUsername.trim().length > 0 &&
@@ -60,7 +61,7 @@ export default function EWallet() {
       parsedAmount > 0 &&
       parsedAmount <= availableBalance
     );
-  }, [amount, availableBalance, merchant?.id, piUser?.uid, piUser?.username, receiverUsername]);
+  }, [amount, availableBalance, merchant?.id, piUser?.uid, piUser?.username, receiverUsername, resolvedMerchantId]);
 
   const canTopUp = useMemo(() => {
     const parsedTopUp = Number(topUpAmount);
@@ -71,8 +72,66 @@ export default function EWallet() {
     );
   }, [topUpAmount]);
 
+  const resolveMerchantId = async (): Promise<string | null> => {
+    if (merchant?.id) return merchant.id;
+    if (resolvedMerchantId) return resolvedMerchantId;
+    if (!piUser?.uid && !piUser?.username) return null;
+
+    try {
+      if (piUser?.uid) {
+        const { data } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('pi_user_id', piUser.uid)
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) {
+          setResolvedMerchantId(data.id);
+          return data.id;
+        }
+      }
+
+      if (piUser?.username) {
+        const normalizedUsername = piUser.username.replace(/^@/, '').trim();
+        const { data } = await supabase
+          .from('merchants')
+          .select('id')
+          .ilike('pi_username', normalizedUsername)
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) {
+          setResolvedMerchantId(data.id);
+          return data.id;
+        }
+      }
+
+      if (piUser?.uid && piUser?.username) {
+        const normalizedUsername = piUser.username.replace(/^@/, '').trim();
+        const { data } = await supabase
+          .from('merchants')
+          .insert({
+            pi_user_id: piUser.uid,
+            pi_username: normalizedUsername,
+            wallet_address: piUser.wallet_address,
+          })
+          .select('id')
+          .single();
+        if (data?.id) {
+          setResolvedMerchantId(data.id);
+          return data.id;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to resolve merchant ID:', error);
+    }
+
+    return null;
+  };
+
   const refreshData = async () => {
-    if (!merchant?.id || !piUser?.username || !piUser?.uid) return;
+    if (!piUser?.username || !piUser?.uid) return;
+    const merchantId = await resolveMerchantId();
+    if (!merchantId) return;
 
     setIsRefreshing(true);
     try {
@@ -80,10 +139,10 @@ export default function EWallet() {
         supabase
           .from('merchants')
           .select('available_balance, revenue_balance')
-          .eq('id', merchant.id)
+          .eq('id', merchantId)
           .maybeSingle(),
         (supabase as any).rpc('get_ewallet_transfers_for_merchant', {
-          merchant_uuid: merchant.id,
+          merchant_uuid: merchantId,
           pi_username_input: piUser.username,
           pi_user_id_input: piUser.uid,
           limit_rows: 100,
@@ -109,13 +168,17 @@ export default function EWallet() {
   };
 
   useEffect(() => {
-    if (merchant?.id && piUser?.username && piUser?.uid) {
+    if (merchant?.id) {
+      setResolvedMerchantId(merchant.id);
+    }
+    if (piUser?.username && piUser?.uid) {
       refreshData();
     }
   }, [merchant?.id, piUser?.username, piUser?.uid]);
 
   const handleSend = async () => {
-    if (!merchant?.id || !piUser?.username || !piUser?.uid) {
+    const merchantId = await resolveMerchantId();
+    if (!merchantId || !piUser?.username || !piUser?.uid) {
       toast.error('Please sign in again to continue');
       return;
     }
@@ -139,7 +202,7 @@ export default function EWallet() {
     setIsSubmitting(true);
     try {
       const { data, error } = await (supabase as any).rpc('transfer_ewallet_by_username', {
-        sender_merchant_uuid: merchant.id,
+        sender_merchant_uuid: merchantId,
         sender_pi_username_input: piUser.username,
         sender_pi_user_id_input: piUser.uid,
         receiver_pi_username_input: normalizedReceiver,
@@ -305,7 +368,8 @@ export default function EWallet() {
   };
 
   const handleTopUp = async () => {
-    if (!merchant?.id || !piUser?.username || !piUser?.uid) {
+    const merchantId = await resolveMerchantId();
+    if (!merchantId || !piUser?.username || !piUser?.uid) {
       toast.error('Please sign in again to continue');
       return;
     }
@@ -349,7 +413,7 @@ export default function EWallet() {
           memo: `Wallet Top Up - ${parsedTopUpAmount} Credits`,
           metadata: {
             type: 'wallet_topup',
-            merchant_id: merchant.id,
+            merchant_id: merchantId,
             pi_username: piUser.username,
             credits: parsedTopUpAmount,
           },
@@ -374,7 +438,7 @@ export default function EWallet() {
                   paymentId,
                   txid,
                   payerUsername: piUser.username,
-                  merchantId: merchant.id,
+                  merchantId: merchantId,
                   paymentType: 'wallet_topup',
                   amount: parsedTopUpAmount,
                 },
@@ -383,7 +447,7 @@ export default function EWallet() {
               if (completion.error) throw completion.error;
 
               const { data, error } = await (supabase as any).rpc('topup_wallet_credit', {
-                merchant_uuid: merchant.id,
+                merchant_uuid: merchantId,
                 pi_username_input: piUser.username,
                 pi_user_id_input: piUser.uid,
                 topup_amount: parsedTopUpAmount,
@@ -428,7 +492,8 @@ export default function EWallet() {
   };
 
   const handleMove = async (direction: 'revenue_to_wallet' | 'wallet_to_revenue') => {
-    if (!merchant?.id || !piUser?.username || !piUser?.uid) {
+    const merchantId = await resolveMerchantId();
+    if (!merchantId || !piUser?.username || !piUser?.uid) {
       toast.error('Please sign in again to continue');
       return;
     }
@@ -442,7 +507,7 @@ export default function EWallet() {
     setIsMoving(true);
     try {
       const { data, error } = await (supabase as any).rpc('move_revenue_wallet_balance', {
-        merchant_uuid: merchant.id,
+        merchant_uuid: merchantId,
         pi_username_input: piUser.username,
         pi_user_id_input: piUser.uid,
         move_amount: parsedMoveAmount,

@@ -67,6 +67,29 @@ serve(async (req: Request) => {
   console.log('✅ Completing payment:', { paymentId, txid, paymentLinkId, isCheckoutLink, isSubscription, paymentType });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const sendTransactionNotification = async (params: {
+    merchantId: string;
+    amount?: number | null;
+    payerUsername?: string | null;
+    paymentId: string;
+  }) => {
+    const amountText = typeof params.amount === 'number' ? params.amount.toFixed(7) : '0.0000000';
+    const payerText = params.payerUsername ? ` from @${params.payerUsername}` : '';
+
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          merchant_id: params.merchantId,
+          title: 'Payment Received',
+          message: `Transaction completed: ${amountText} Pi${payerText}. Payment ID: ${params.paymentId}`,
+          type: 'success',
+          is_read: false,
+        });
+    } catch (notifError) {
+      console.error('Failed to create transaction notification:', notifError);
+    }
+  };
 
   // Check for duplicate payment completion
   const { data: existingTx } = await supabase
@@ -290,6 +313,13 @@ serve(async (req: Request) => {
 
         console.log('✅ Transaction recorded:', txData?.id);
 
+        await sendTransactionNotification({
+          merchantId: linkData.merchant_id,
+          amount: finalAmount,
+          payerUsername: payerUsername || null,
+          paymentId,
+        });
+
         // Always ensure we have a transaction ID to return
         if (!txData?.id) {
           console.error('❌ Transaction created but no ID returned');
@@ -479,6 +509,12 @@ serve(async (req: Request) => {
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      await sendTransactionNotification({
+        merchantId: resolvedMerchantId,
+        amount: topUpAmount,
+        payerUsername: payerUsername || null,
+        paymentId,
+      });
 
       return new Response(
         JSON.stringify({ success: true, result, transactionId: txData?.id, walletTopUp: true }),
@@ -580,6 +616,12 @@ serve(async (req: Request) => {
                   console.error('⚠️ Failed to record subscription transaction (no link):', txError);
                 } else {
                   console.log('✅ Subscription transaction recorded (no link):', txData?.id);
+                  await sendTransactionNotification({
+                    merchantId: resolvedMerchantId,
+                    amount: finalAmount,
+                    payerUsername: payerUsername || null,
+                    paymentId,
+                  });
                 }
               } catch (txErr) {
                 console.error('⚠️ Unexpected error inserting subscription transaction:', txErr);
@@ -617,3 +659,6 @@ serve(async (req: Request) => {
     );
   }
 });
+
+
+
