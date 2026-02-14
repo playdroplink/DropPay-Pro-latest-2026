@@ -417,6 +417,75 @@ serve(async (req: Request) => {
       }
     }
 
+    // Handle wallet top-up payments (without payment link)
+    if (!paymentLinkId && paymentType === 'wallet_topup') {
+      let resolvedMerchantId = merchantId;
+      if (!resolvedMerchantId && payerUsername) {
+        const { data: merchantRow } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('pi_username', payerUsername)
+          .maybeSingle();
+        resolvedMerchantId = merchantRow?.id || null;
+      }
+
+      if (!resolvedMerchantId) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot resolve merchant for wallet top up' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const topUpAmount = amount ?? result?.payment?.amount;
+      const { data: txData, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          merchant_id: resolvedMerchantId,
+          payment_link_id: null,
+          pi_payment_id: paymentId,
+          payer_pi_username: payerUsername || null,
+          amount: topUpAmount,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          txid,
+          buyer_email: buyerEmail || null,
+          metadata: { type: 'wallet_topup' },
+        })
+        .select()
+        .single();
+
+      if (txError) {
+        const isDuplicateTopUp =
+          txError.code === '23505' ||
+          (txError.message || '').toLowerCase().includes('duplicate') ||
+          (txError.message || '').toLowerCase().includes('transactions_pi_payment_id_key');
+
+        if (isDuplicateTopUp) {
+          const { data: existingTopUpTx } = await supabase
+            .from('transactions')
+            .select('id')
+            .eq('pi_payment_id', paymentId)
+            .limit(1)
+            .maybeSingle();
+
+          return new Response(
+            JSON.stringify({ success: true, result, transactionId: existingTopUpTx?.id, idempotent: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Failed to record wallet top-up transaction', details: txError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, result, transactionId: txData?.id, walletTopUp: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Handle subscription activation for Pi payments (without payment link)
     if (!paymentLinkId && isSubscription) {
       try {
