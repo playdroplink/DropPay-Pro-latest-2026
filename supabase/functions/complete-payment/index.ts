@@ -84,8 +84,8 @@ serve(async (req: Request) => {
     );
   }
 
-  // Expired merchants cannot accept payments until renewal.
-  // If no subscription row exists, merchant is treated as Free and allowed.
+  // Expired merchants cannot accept normal payments until renewal.
+  // For subscription purchases/renewals, skip this guard so merchants can reactivate.
   if (paymentLinkId) {
     const tableName = isCheckoutLink ? 'checkout_links' : 'payment_links';
     const { data: preLink, error: preLinkError } = await supabase
@@ -108,33 +108,35 @@ serve(async (req: Request) => {
       );
     }
 
-    const { data: latestActiveSub, error: subError } = await supabase
-      .from('user_subscriptions')
-      .select('status, current_period_end, expires_at, last_payment_at')
-      .eq('merchant_id', preLink.merchant_id)
-      .eq('status', 'active')
-      .order('current_period_end', { ascending: false, nullsFirst: false })
-      .order('last_payment_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
+    if (!isSubscription) {
+      const { data: latestActiveSub, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select('status, current_period_end, expires_at, last_payment_at')
+        .eq('merchant_id', preLink.merchant_id)
+        .eq('status', 'active')
+        .order('current_period_end', { ascending: false, nullsFirst: false })
+        .order('last_payment_at', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (subError) {
-      return new Response(
-        JSON.stringify({ error: 'Subscription validation failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (latestActiveSub) {
-      const expiryValue = latestActiveSub.expires_at || latestActiveSub.current_period_end;
-      const isDateExpired = expiryValue ? new Date(expiryValue).getTime() < Date.now() : false;
-      const isExpired = isDateExpired;
-
-      if (isExpired) {
+      if (subError) {
         return new Response(
-          JSON.stringify({ error: 'Merchant subscription expired. Please renew plan to accept payments.' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Subscription validation failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      if (latestActiveSub) {
+        const expiryValue = latestActiveSub.expires_at || latestActiveSub.current_period_end;
+        const isDateExpired = expiryValue ? new Date(expiryValue).getTime() < Date.now() : false;
+        const isExpired = isDateExpired;
+
+        if (isExpired) {
+          return new Response(
+            JSON.stringify({ error: 'Merchant subscription expired. Please renew plan to accept payments.' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
   }
@@ -253,6 +255,32 @@ serve(async (req: Request) => {
           .single();
 
         if (txError) {
+          const isDuplicatePayment =
+            txError.code === '23505' ||
+            (txError.message || '').toLowerCase().includes('duplicate') ||
+            (txError.message || '').toLowerCase().includes('transactions_pi_payment_id_key');
+
+          if (isDuplicatePayment) {
+            const { data: duplicateTx } = await supabase
+              .from('transactions')
+              .select('id')
+              .eq('pi_payment_id', paymentId)
+              .limit(1)
+              .maybeSingle();
+
+            if (duplicateTx?.id) {
+              console.warn('Payment transaction already exists; returning idempotent success:', {
+                paymentId,
+                transactionId: duplicateTx.id,
+              });
+
+              return new Response(
+                JSON.stringify({ success: true, result, transactionId: duplicateTx.id, idempotent: true }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+
           console.error('❌ Transaction insert error:', txError);
           return new Response(
             JSON.stringify({ error: 'Failed to record transaction', details: txError.message }),

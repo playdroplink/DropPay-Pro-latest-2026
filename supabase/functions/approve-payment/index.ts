@@ -82,35 +82,37 @@ serve(async (req: Request) => {
       );
     }
 
-    // Expired merchants cannot accept payments until renewal.
-    // If no subscription row exists, treat merchant as Free and allow.
-    const { data: latestActiveSub, error: subError } = await supabase
-      .from('user_subscriptions')
-      .select('status, current_period_end, expires_at, last_payment_at')
-      .eq('merchant_id', linkData.merchant_id)
-      .eq('status', 'active')
-      .order('current_period_end', { ascending: false, nullsFirst: false })
-      .order('last_payment_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
+    // Expired merchants cannot accept normal payments until renewal.
+    // For subscription purchases/renewals, skip this guard so merchants can reactivate.
+    if (!isSubscription) {
+      const { data: latestActiveSub, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select('status, current_period_end, expires_at, last_payment_at')
+        .eq('merchant_id', linkData.merchant_id)
+        .eq('status', 'active')
+        .order('current_period_end', { ascending: false, nullsFirst: false })
+        .order('last_payment_at', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (subError) {
-      return new Response(
-        JSON.stringify({ error: 'Subscription validation failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (latestActiveSub) {
-      const expiryValue = latestActiveSub.expires_at || latestActiveSub.current_period_end;
-      const isDateExpired = expiryValue ? new Date(expiryValue).getTime() < Date.now() : false;
-      const isExpired = isDateExpired;
-
-      if (isExpired) {
+      if (subError) {
         return new Response(
-          JSON.stringify({ error: 'Merchant subscription expired. Please renew plan to accept payments.' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Subscription validation failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      if (latestActiveSub) {
+        const expiryValue = latestActiveSub.expires_at || latestActiveSub.current_period_end;
+        const isDateExpired = expiryValue ? new Date(expiryValue).getTime() < Date.now() : false;
+        const isExpired = isDateExpired;
+
+        if (isExpired) {
+          return new Response(
+            JSON.stringify({ error: 'Merchant subscription expired. Please renew plan to accept payments.' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
   }

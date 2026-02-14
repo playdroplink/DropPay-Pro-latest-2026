@@ -37,6 +37,7 @@ import Subscription from "./pages/Subscription";
 import Help from "./pages/Help";
 import Storefront from "./pages/Storefront";
 import Reviews from "./pages/Reviews";
+import EWallet from "./pages/EWallet";
 
 import NotFound from "./pages/NotFound";
 import TrackRedirect from "./pages/TrackRedirect";
@@ -110,6 +111,7 @@ const App = () => {
                 <Route path="/dashboard/api" element={<PiAuthGuard><ApiSettings /></PiAuthGuard>} />
                 <Route path="/dashboard/settings" element={<PiAuthGuard><Settings /></PiAuthGuard>} />
                 <Route path="/dashboard/withdrawals" element={<PiAuthGuard><Withdrawals /></PiAuthGuard>} />
+                <Route path="/dashboard/ewallet" element={<PiAuthGuard><EWallet /></PiAuthGuard>} />
                 <Route path="/dashboard/widgets" element={<PiAuthGuard><Widgets /></PiAuthGuard>} />
                 <Route path="/dashboard/watch-ads" element={<PiAuthGuard><WatchAds /></PiAuthGuard>} />
                 <Route path="/dashboard/subscription" element={<PiAuthGuard><Subscription /></PiAuthGuard>} />

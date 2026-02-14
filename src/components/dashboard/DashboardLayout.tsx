@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Wallet,
+  ArrowLeftRight,
   ShieldCheck,
   Code2,
   Play,
@@ -58,6 +59,7 @@ const navSections: NavSection[] = [
     title: 'Financial',
     items: [
       { icon: History, label: 'Transactions', href: '/dashboard/transactions' },
+      { icon: ArrowLeftRight, label: 'eWallet', href: '/dashboard/ewallet' },
       { icon: Wallet, label: 'Withdrawals', href: '/dashboard/withdrawals' },
       { icon: Crown, label: 'Subscription Plan', href: '/dashboard/subscription' },
     ],
