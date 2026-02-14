@@ -59,7 +59,7 @@ const navSections: NavSection[] = [
     title: 'Financial',
     items: [
       { icon: History, label: 'Transactions', href: '/dashboard/transactions' },
-      { icon: ArrowLeftRight, label: 'eWallet', href: '/dashboard/ewallet' },
+      { icon: ArrowLeftRight, label: 'Wallet', href: '/dashboard/ewallet' },
       { icon: Wallet, label: 'Withdrawals', href: '/dashboard/withdrawals' },
       { icon: Crown, label: 'Subscription Plan', href: '/dashboard/subscription' },
     ],

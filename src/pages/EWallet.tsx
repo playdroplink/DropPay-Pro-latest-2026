@@ -23,13 +23,18 @@ interface EWalletTransfer {
 }
 
 export default function EWallet() {
-  const { merchant, piUser, isAuthenticated, isLoading } = useAuth();
+  const { merchant, piUser, isAuthenticated, isLoading, isPiBrowser } = useAuth();
   const [availableBalance, setAvailableBalance] = useState(0);
+  const [revenueBalance, setRevenueBalance] = useState(0);
   const [transfers, setTransfers] = useState<EWalletTransfer[]>([]);
   const [receiverUsername, setReceiverUsername] = useState('');
   const [amount, setAmount] = useState('');
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [moveAmount, setMoveAmount] = useState('');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTopUpProcessing, setIsTopUpProcessing] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const canSend = useMemo(() => {
@@ -45,6 +50,17 @@ export default function EWallet() {
     );
   }, [amount, availableBalance, merchant?.id, piUser?.uid, piUser?.username, receiverUsername]);
 
+  const canTopUp = useMemo(() => {
+    const parsedTopUp = Number(topUpAmount);
+    return (
+      !!merchant?.id &&
+      !!piUser?.username &&
+      !!piUser?.uid &&
+      Number.isFinite(parsedTopUp) &&
+      parsedTopUp >= 1
+    );
+  }, [merchant?.id, piUser?.uid, piUser?.username, topUpAmount]);
+
   const refreshData = async () => {
     if (!merchant?.id || !piUser?.username || !piUser?.uid) return;
 
@@ -53,7 +69,7 @@ export default function EWallet() {
       const [balanceResult, transfersResult] = await Promise.all([
         supabase
           .from('merchants')
-          .select('available_balance')
+          .select('available_balance, revenue_balance')
           .eq('id', merchant.id)
           .maybeSingle(),
         (supabase as any).rpc('get_ewallet_transfers_for_merchant', {
@@ -68,6 +84,7 @@ export default function EWallet() {
         throw balanceResult.error;
       }
       setAvailableBalance(Number(balanceResult.data?.available_balance || 0));
+      setRevenueBalance(Number((balanceResult.data as any)?.revenue_balance || 0));
 
       if (transfersResult.error) {
         throw transfersResult.error;
@@ -142,6 +159,144 @@ export default function EWallet() {
     toast.success('Username copied');
   };
 
+  const handleTopUp = async () => {
+    if (!merchant?.id || !piUser?.username || !piUser?.uid) {
+      toast.error('Please sign in again to continue');
+      return;
+    }
+
+    if (!isPiBrowser || !(window as any).Pi) {
+      toast.error('Please open in Pi Browser to top up wallet');
+      return;
+    }
+
+    const parsedTopUpAmount = Number(topUpAmount);
+    if (!Number.isFinite(parsedTopUpAmount) || parsedTopUpAmount < 1) {
+      toast.error('Minimum top up is 1 Pi');
+      return;
+    }
+
+    const Pi = (window as any).Pi;
+    setIsTopUpProcessing(true);
+
+    try {
+      await Pi.createPayment(
+        {
+          amount: parsedTopUpAmount,
+          memo: `Wallet Top Up - ${parsedTopUpAmount} Credits`,
+          metadata: {
+            type: 'wallet_topup',
+            merchant_id: merchant.id,
+            pi_username: piUser.username,
+            credits: parsedTopUpAmount,
+          },
+        },
+        {
+          onReadyForServerApproval: async (paymentId: string) => {
+            const approval = await supabase.functions.invoke('approve-payment', {
+              body: { paymentId },
+            });
+            if (approval.error) throw approval.error;
+          },
+          onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+            const completion = await supabase.functions.invoke('complete-payment', {
+              body: {
+                paymentId,
+                txid,
+                payerUsername: piUser.username,
+                merchantId: merchant.id,
+                paymentType: 'wallet_topup',
+                amount: parsedTopUpAmount,
+              },
+            });
+
+            if (completion.error) throw completion.error;
+
+            const verification = await supabase.functions.invoke('verify-payment', {
+              body: {
+                txid,
+                expectedAmount: parsedTopUpAmount,
+                merchantWallet: null,
+              },
+            });
+            if (verification.error) throw verification.error;
+            if (!verification.data?.verified) {
+              throw new Error('Top up verification failed on blockchain');
+            }
+
+            const { data, error } = await (supabase as any).rpc('topup_wallet_credit', {
+              merchant_uuid: merchant.id,
+              pi_username_input: piUser.username,
+              pi_user_id_input: piUser.uid,
+              topup_amount: parsedTopUpAmount,
+              payment_id: paymentId,
+              payment_txid: txid,
+            });
+
+            if (error) throw error;
+            if (!data?.success) throw new Error('Top up crediting failed');
+
+            toast.success(`Top up successful: ${parsedTopUpAmount.toFixed(7)} credits added`);
+            setTopUpAmount('');
+            await refreshData();
+            setIsTopUpProcessing(false);
+          },
+          onCancel: () => {
+            toast.info('Top up cancelled');
+            setIsTopUpProcessing(false);
+          },
+          onError: (error: any) => {
+            console.error('Top up payment error:', error);
+            toast.error(error?.message || 'Top up failed');
+            setIsTopUpProcessing(false);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error('Top up failed:', error);
+      toast.error(error?.message || 'Top up failed');
+      setIsTopUpProcessing(false);
+    }
+  };
+
+  const handleMove = async (direction: 'revenue_to_wallet' | 'wallet_to_revenue') => {
+    if (!merchant?.id || !piUser?.username || !piUser?.uid) {
+      toast.error('Please sign in again to continue');
+      return;
+    }
+
+    const parsedMoveAmount = Number(moveAmount);
+    if (!Number.isFinite(parsedMoveAmount) || parsedMoveAmount <= 0) {
+      toast.error('Enter a valid move amount');
+      return;
+    }
+
+    setIsMoving(true);
+    try {
+      const { data, error } = await (supabase as any).rpc('move_revenue_wallet_balance', {
+        merchant_uuid: merchant.id,
+        pi_username_input: piUser.username,
+        pi_user_id_input: piUser.uid,
+        move_amount: parsedMoveAmount,
+        move_direction: direction,
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error('Move failed');
+
+      toast.success(direction === 'revenue_to_wallet'
+        ? 'Moved from Revenue to Wallet'
+        : 'Moved from Wallet to Revenue');
+      setMoveAmount('');
+      await refreshData();
+    } catch (error: any) {
+      console.error('Move balance failed:', error);
+      toast.error(error?.message || 'Move failed');
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -157,8 +312,8 @@ export default function EWallet() {
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">eWallet</h1>
-            <p className="text-muted-foreground">Send and receive Pi by username.</p>
+            <h1 className="text-3xl font-bold">Wallet</h1>
+            <p className="text-muted-foreground">eWallet: send, receive, and top up credits by Pi username.</p>
           </div>
           <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
             {isRefreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -169,7 +324,7 @@ export default function EWallet() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Available Balance</CardDescription>
+              <CardDescription>Wallet Balance</CardDescription>
               <CardTitle className="text-3xl">Pi {availableBalance.toFixed(7)}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -182,6 +337,21 @@ export default function EWallet() {
 
           <Card>
             <CardHeader className="pb-2">
+              <CardDescription>Revenue Balance</CardDescription>
+              <CardTitle className="text-3xl">Pi {revenueBalance.toFixed(7)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Wallet className="w-4 h-4 mr-2" />
+                Movable from dashboard revenue
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
               <CardDescription>Receive Money</CardDescription>
               <CardTitle className="text-xl">@{piUser?.username || 'unknown'}</CardTitle>
             </CardHeader>
@@ -192,11 +362,81 @@ export default function EWallet() {
               </Button>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Move Balance</CardTitle>
+              <CardDescription>Move funds between Revenue and Wallet (both directions).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="moveAmount">Amount (Pi)</Label>
+                <Input
+                  id="moveAmount"
+                  type="number"
+                  min="0"
+                  step="0.0000001"
+                  placeholder="0.0000000"
+                  value={moveAmount}
+                  onChange={(e) => setMoveAmount(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleMove('revenue_to_wallet')}
+                  disabled={isMoving}
+                >
+                  Revenue to Wallet
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleMove('wallet_to_revenue')}
+                  disabled={isMoving}
+                >
+                  Wallet to Revenue
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Send Money</CardTitle>
+            <CardTitle>Top Up Credits</CardTitle>
+            <CardDescription>Buy credits for wallet balance. 1 Pi = 1 Credit. Minimum 1 Pi, no max.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="topup">Top Up Amount (Pi)</Label>
+                <Input
+                  id="topup"
+                  type="number"
+                  min="1"
+                  step="0.0000001"
+                  placeholder="1.0000000"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Credits You Get</Label>
+                <Input value={Number(topUpAmount || 0).toFixed(7)} readOnly />
+              </div>
+            </div>
+            <Button onClick={handleTopUp} disabled={!canTopUp || isTopUpProcessing}>
+              {isTopUpProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wallet className="w-4 h-4 mr-2" />}
+              Top Up
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Express Send</CardTitle>
             <CardDescription>Transfer instantly to another DropPay user via Pi username.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -234,7 +474,7 @@ export default function EWallet() {
             </div>
             <Button onClick={handleSend} disabled={!canSend || isSubmitting}>
               {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              Send
+              Express Send
             </Button>
           </CardContent>
         </Card>
@@ -242,7 +482,7 @@ export default function EWallet() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Last eWallet transfers for your account.</CardDescription>
+            <CardDescription>Last wallet transfers for your account.</CardDescription>
           </CardHeader>
           <CardContent>
             {transfers.length === 0 ? (

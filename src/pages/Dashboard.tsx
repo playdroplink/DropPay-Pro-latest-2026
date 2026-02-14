@@ -79,9 +79,15 @@ function Dashboard() {
         .from('transactions')
         .select('amount, status')
         .eq('merchant_id', merchant.id);
+      const { data: merchantBalances } = await supabase
+        .from('merchants')
+        .select('revenue_balance')
+        .eq('id', merchant.id)
+        .maybeSingle();
 
       const completedTransactions = transactions?.filter((t) => t.status === 'completed') || [];
-      const totalRevenue = completedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      const historicalRevenue = completedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      const totalRevenue = Number((merchantBalances as any)?.revenue_balance ?? historicalRevenue);
       const pendingPayments = transactions?.filter((t) => t.status === 'pending').length || 0;
 
       console.log('💰 Transaction summary:', { 
@@ -290,7 +296,7 @@ function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Revenue
+                Revenue Balance
               </CardTitle>
               <Coins className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
@@ -299,7 +305,7 @@ function Dashboard() {
                 π {stats.totalRevenue.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                From completed payments
+                Movable to Wallet
               </p>
               <Button asChild size="sm" className="mt-3 w-full">
                 <Link to="/dashboard/withdrawals">
